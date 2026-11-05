@@ -1,22 +1,22 @@
 import { registerPlugin } from '@hubra/plugin-sdk'
-import { IconNote } from '@tabler/icons-react'
-import { NotesScreen } from './NotesScreen'
+import { IconUsersGroup } from '@tabler/icons-react'
+import { AlbumScreen } from './AlbumScreen'
+import { CommunityScreen } from './CommunityScreen'
+import { WelcomeCard } from './WelcomeCard'
 import translations from './translations.json'
 
-// Everything here shows only while the module is on for the club and the
-// person has `perm`. Other places to add things: `tabs` (a tab on a built-in
-// screen) and `slots` (account.cards, inventory.item, settings.module.actions).
 registerPlugin({
-  id: 'example',
+  id: 'community',
   routes: [
-    {
-      path: 'example',
-      module: 'example',
-      perm: 'example.notes.read',
-      component: NotesScreen,
-    },
+    { path: 'community', module: 'community', component: CommunityScreen },
+    { path: 'community/skills', module: 'community', component: CommunityScreen },
+    { path: 'community/ideas', module: 'community', component: CommunityScreen },
+    { path: 'community/honours', module: 'community', component: CommunityScreen },
+    { path: 'community/welcome', module: 'community', component: CommunityScreen },
+    { path: 'community/albums/:id', module: 'community', component: AlbumScreen },
   ],
-  // The nav entry in hubra_example/__init__.py names this icon.
-  icons: { note: IconNote },
+  slots: [{ slot: 'account.cards', module: 'community', component: WelcomeCard }],
+  // The nav entry in hubra_community/__init__.py names this icon.
+  icons: { 'users-group': IconUsersGroup },
   translations,
 })
