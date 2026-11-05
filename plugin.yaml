@@ -1,20 +1,16 @@
-id: example
-name: Example
-version: "0.1.0"
+id: community
+name: Community
+version: "1.0.0"
 hubra: ">=0.2,<1"
-description: "A starting point for a Hubra plugin: one table, an API, a screen and a test."
+description: "Member to member: photo albums that respect who doesn't want to be tagged, a skills and lending directory, an idea box with votes, a welcome checklist for new members, and jubilees and honorary members for the board."
 author: Hubra
-homepage: https://github.com/hubra-app/hubra-plugins-template
-license: AGPL-3.0-or-later
-tags: [example]
-package: hubra_example
-modules: [example]
+homepage: https://github.com/hubra-app/hubra-plugin-community
+tags: [community, photos, gallery, skills, ideas, onboarding, honours]
+package: hubra_community
+modules: [community]
 requires: [members]
 migrations: migrations
 frontend: frontend/dist/plugin.js
 # The areas this plugin extends; Hubra refuses a plugin that touches one it
 # doesn't list. See docs/plugins.md in hubra-app/hubra.
-uses: [routes, tables, settings, nav, frontend]
-# Other plugins it needs, with a version range, e.g.
-# depends:
-#   finance: ">=2.0,<3"
+uses: [routes, tables, jobs, nav, frontend]
