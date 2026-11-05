@@ -368,11 +368,22 @@ def upload(album_id: int):
             full, kind, thumb, width, height = images.process(data)
             big = store.put("community", full, kind)
             small = store.put("community", thumb, kind)
-        except images.BadImage as exc:
-            failed.append({"name": (f.filename or "")[:120], "reason": str(exc)})
+        except images.BadImage:
+            # Fixed texts: exception messages don't go back to the browser.
+            failed.append(
+                {
+                    "name": (f.filename or "")[:120],
+                    "reason": "not a JPEG, PNG, WebP or GIF photo",
+                }
+            )
             continue
-        except store.FileTooLarge as exc:
-            failed.append({"name": (f.filename or "")[:120], "reason": str(exc)})
+        except store.FileTooLarge:
+            failed.append(
+                {
+                    "name": (f.filename or "")[:120],
+                    "reason": "larger than the club's file limit",
+                }
+            )
             continue
         except store.FileStoreError:
             db.session.rollback()
