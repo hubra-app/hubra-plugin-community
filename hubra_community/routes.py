@@ -794,7 +794,7 @@ def idea_poll(idea_id: int):
         return api_error("POLL_EXISTS", "this idea already has a poll", 409)
     if not is_enabled("polls"):
         return api_error("POLLS_OFF", "the polls module is switched off", 409)
-    from hubra.api.polls.services import PollsService
+    from hubra.core.contracts import SYSTEM, call
 
     data = _body()
     question = _text(data, "question", 255) or i.title[:255]
@@ -812,16 +812,17 @@ def idea_poll(idea_id: int):
         if (getattr(member, "language", None) or "de").startswith("de")
         else ("For", "Against", "Abstain")
     )
-    poll = PollsService.create(
-        {
-            "question": question,
-            "closes_at": closes_at,
-            "auto_close": closes_at is not None,
-            "options": [{"label": label} for label in labels],
-        },
-        member.id,
+    # The route checked the member's right to turn an idea into a poll.
+    poll = call(
+        "polls.poll.create",
+        question=question,
+        closes_at=closes_at,
+        auto_close=closes_at is not None,
+        options=[{"label": label} for label in labels],
+        actor_id=member.id,
+        actor=SYSTEM,
     )
-    i.poll_id = poll.id
+    i.poll_id = poll["id"]
     if i.status == "open":
         i.status = "planned"
     db.session.commit()
