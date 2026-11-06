@@ -54,4 +54,8 @@ module = Module(
         "community_welcome_done",
         "community_jubilee_notices",
     ),
+    # Hubra's features it uses, through contracts (docs/contracts.md in hubra).
+    consumes={
+        "polls.poll.create": ">=1,<2",
+    },
 )
