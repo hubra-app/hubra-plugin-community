@@ -1,5 +1,16 @@
 # Community
 
+## 1.2.0
+
+- What members lend to the club moved to Inventory, so the Skills & lending
+  tab is gone (and the `/skills` API with it). An hourly job hands every old
+  "lend" entry to Inventory through the `inventory.items.lend` contract,
+  where it becomes an item that stays the member's own ("Lent by Anna"),
+  and removes the entry once Inventory has it. Without Inventory (2.2 or
+  later, switched on) the entries wait. "skill" rows stay in
+  `community_skills` for Guides to copy. Community still imports nothing
+  from Inventory.
+
 ## 1.1.0
 
 - What members can do ("Kann") moved to qualifications: the Guides plugin's

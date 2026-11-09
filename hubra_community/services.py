@@ -1,4 +1,5 @@
-"""Jubilees and the welcome checklist's automatic steps."""
+"""Jubilees, the welcome checklist's automatic steps, and moving what
+members lend to the club over to Inventory."""
 
 from __future__ import annotations
 
@@ -9,7 +10,7 @@ from sqlalchemy import select
 from hubra.core.extensions import db
 from hubra.core.models.member import Member
 
-from .models import CommunityJubileeNotice, CommunityWelcomeDone, CommunityWelcomeStep
+from .models import CommunityJubileeNotice, CommunitySkill, CommunityWelcomeDone, CommunityWelcomeStep
 from .notify import notify
 
 # Membership years worth a word from the board, and round birthdays.
@@ -165,3 +166,53 @@ def done_for(members: list, steps: list[CommunityWelcomeStep]) -> dict[int, set[
             if m.avatar:
                 out[m.id].update(photo_steps)
     return out
+
+
+# ── Lending moved to Inventory ───────────────────────────────────────────────
+
+LEND = "inventory.items.lend"
+
+
+def move_lending(limit: int = 500) -> int:
+    """Hand what members said they lend to the club ("lend" entries of the
+    old Skills & lending tab) to Inventory, where each becomes an item that
+    stays the member's own. Each entry is removed once Inventory has it, so
+    running again moves only what is left; without Inventory nothing moves.
+
+    "skill" rows stay in ``community_skills``: Guides copies them into its
+    qualifications."""
+    from hubra.core.contracts import (
+        SYSTEM,
+        ActionFailed,
+        ContractError,
+        Refused,
+        available,
+        call,
+    )
+
+    if not available(LEND):
+        return 0
+    rows = db.session.scalars(
+        select(CommunitySkill)
+        .where(CommunitySkill.kind == "lend")
+        .order_by(CommunitySkill.id)
+        .limit(limit)
+    ).all()
+    moved = 0
+    for row in rows:
+        try:
+            call(
+                LEND,
+                member_id=row.member_id,
+                name=row.title,
+                description=row.description,
+                actor=SYSTEM,
+            )
+        except ActionFailed:
+            continue  # Inventory broke on this one; keep it for the next run.
+        except (Refused, ContractError):
+            # Member gone or archived: nobody lends it any more.
+            pass
+        db.session.delete(row)
+        moved += 1
+    return moved

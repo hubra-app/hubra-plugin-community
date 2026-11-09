@@ -41,16 +41,6 @@ export interface AlbumDetail extends Album {
   items: Photo[]
 }
 
-export interface Skill {
-  id: number
-  memberId: number
-  name: string
-  kind: 'skill' | 'lend'
-  title: string
-  description: string | null
-  mine: boolean
-}
-
 export type IdeaStatus = 'open' | 'planned' | 'done' | 'declined'
 
 export interface Idea {
@@ -113,7 +103,6 @@ export const QK = {
   options: ['community', 'options'] as const,
   albums: ['community', 'albums'] as const,
   album: (id: number) => ['community', 'albums', id] as const,
-  skills: (q: string, kind: string) => ['community', 'skills', q, kind] as const,
   ideas: (status: string) => ['community', 'ideas', status] as const,
   honours: ['community', 'honours'] as const,
   jubilees: ['community', 'jubilees'] as const,
@@ -164,12 +153,6 @@ export async function photoUrl(id: number, size: 'thumb' | 'full'): Promise<stri
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return URL.createObjectURL(await res.blob())
 }
-
-export const listSkills = (q: string, kind: string) =>
-  apiFetch<Skill[]>(`${BASE}/skills?${new URLSearchParams({ q, kind: kind === 'all' ? '' : kind })}`)
-export const saveSkill = (body: Record<string, unknown>, id?: number) =>
-  apiFetch<Skill>(id ? `${BASE}/skills/${id}` : `${BASE}/skills`, json(id ? 'PATCH' : 'POST', body))
-export const deleteSkill = (id: number) => apiFetch<void>(`${BASE}/skills/${id}`, del)
 
 export const listIdeas = (status: string) => apiFetch<Idea[]>(`${BASE}/ideas?status=${status}`)
 export const createIdea = (body: Record<string, unknown>) => apiFetch<Idea>(`${BASE}/ideas`, json('POST', body))

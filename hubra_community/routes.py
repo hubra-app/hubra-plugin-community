@@ -14,11 +14,6 @@ PATCH  /photos/<id>                   {caption?, tags?: [memberId]}
 DELETE /photos/<id>                   the uploader or a gallery manager
 DELETE /photos/<id>/tags/me           untag oneself
 
-GET    /skills?q=                     what members lend
-POST   /skills                        {kind: lend, title, description?}
-PATCH  /skills/<id>                   own entries
-DELETE /skills/<id>
-
 GET    /ideas?status=                 the idea box, most votes first
 POST   /ideas                         {title, body?, anonymous?}
 DELETE /ideas/<id>                    own before it is answered, or the board
@@ -47,7 +42,7 @@ from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 
 from flask import Blueprint, Response, jsonify, request
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 
 from hubra.core import files as store
 from hubra.core.auth.helpers import get_current_member
@@ -67,7 +62,6 @@ from .models import (
     CommunityPhoto,
     CommunityPhotoOptout,
     CommunityPhotoTag,
-    CommunitySkill,
     CommunityWelcomeDone,
     CommunityWelcomeStep,
 )
@@ -517,120 +511,6 @@ def untag_me(photo_id: int):
     if tag is not None:
         db.session.delete(tag)
         db.session.commit()
-    return "", 204
-
-
-# ── Skills ───────────────────────────────────────────────────────────────────
-
-
-def _skill(s: CommunitySkill, names: dict, member) -> dict:
-    return {
-        "id": s.id,
-        "memberId": s.member_id,
-        "name": names.get(s.member_id, "?"),
-        "kind": s.kind,
-        "title": s.title,
-        "description": s.description,
-        "mine": s.member_id == member.id,
-    }
-
-
-@community_bp.get("/skills")
-@require_member
-def list_skills():
-    member = get_current_member()
-    query = (
-        select(CommunitySkill)
-        .join(Member, Member.id == CommunitySkill.member_id)
-        .where(Member.status == "active")
-        .where(Member.archived_at.is_(None))
-        .order_by(func.lower(CommunitySkill.title))
-    )
-    # What members can do moved to qualifications (Guides, "Wer kann was");
-    # old "skill" rows stay in the table for its migration to copy.
-    query = query.where(CommunitySkill.kind == "lend")
-    q = (request.args.get("q") or "").strip()[:80]
-    if q:
-        like = f"%{q.lower()}%"
-        query = query.where(
-            or_(
-                func.lower(CommunitySkill.title).like(like),
-                func.lower(func.coalesce(CommunitySkill.description, "")).like(like),
-            )
-        )
-    rows = list(db.session.scalars(query.limit(1000)))
-    names = _names(s.member_id for s in rows)
-    return jsonify([_skill(s, names, member) for s in rows])
-
-
-def _skill_fields(s: CommunitySkill, data: dict, creating: bool) -> None:
-    if creating or "kind" in data:
-        kind = data.get("kind") or "lend"
-        if kind == "skill":
-            raise Invalid(
-                "what members can do is a qualification now: add it under "
-                "Wer kann was (Guides)"
-            )
-        if kind != "lend":
-            raise Invalid("kind must be lend")
-        s.kind = kind
-    if creating or "title" in data:
-        s.title = _text(data, "title", 120, required=True)
-    if creating or "description" in data:
-        s.description = _text(data, "description", 1000)
-
-
-@community_bp.post("/skills")
-@require_member
-def create_skill():
-    member = get_current_member()
-    count = db.session.scalar(
-        select(func.count())
-        .select_from(CommunitySkill)
-        .where(CommunitySkill.member_id == member.id)
-        .where(CommunitySkill.kind == "lend")
-    )
-    if count >= 50:
-        raise Invalid("at most 50 entries per member")
-    s = CommunitySkill(member_id=member.id)
-    _skill_fields(s, _body(), creating=True)
-    db.session.add(s)
-    db.session.commit()
-    return jsonify(_skill(s, _names([member.id]), member)), 201
-
-
-def _own_skill(skill_id: int):
-    member = get_current_member()
-    s, err = _get(CommunitySkill, skill_id)
-    if err:
-        return None, err
-    if s.kind != "lend":
-        return None, api_error("NOT_FOUND", "not found", 404)
-    if s.member_id != member.id:
-        return None, api_error("FORBIDDEN", "not your entry", 403)
-    return s, None
-
-
-@community_bp.patch("/skills/<int:skill_id>")
-@require_member
-def update_skill(skill_id: int):
-    member = get_current_member()
-    s, err = _own_skill(skill_id)
-    if err:
-        return err
-    _skill_fields(s, _body(), creating=False)
-    db.session.commit()
-    return jsonify(_skill(s, _names([member.id]), member))
-
-
-@community_bp.delete("/skills/<int:skill_id>")
-@require_member
-def delete_skill(skill_id: int):
-    s, err = _own_skill(skill_id)
-    if err:
-        return err
-    db.session.delete(s)
-    db.session.commit()
     return "", 204
 
 
