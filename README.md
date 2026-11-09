@@ -2,7 +2,7 @@
 
 [![Test and release](https://github.com/hubra-app/hubra-plugin-community/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/hubra-app/hubra-plugin-community/actions/workflows/release.yml?query=branch%3Amain) [![Release](https://img.shields.io/github/v/release/hubra-app/hubra-plugin-community)](https://github.com/hubra-app/hubra-plugin-community/releases/latest) [![License: all rights reserved](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)](LICENSE)
 
-A plugin for [Hubra](https://hubra.club). Member to member: photo albums that respect who doesn't want to be tagged, a lending directory, an idea box with votes, a welcome checklist for new members, and jubilees and honorary members for the board.
+A plugin for [Hubra](https://hubra.club). Member to member: photo albums that respect who doesn't want to be tagged, an idea box with votes, a welcome checklist for new members, and jubilees and honorary members for the board.
 
 **Version** 1.1.0 · **Works with** Hubra >=0.2,<1 · **Plugin id** `community` · **Needs** the members module (and polls, to turn ideas into polls; the file store, for photos)
 
@@ -14,7 +14,7 @@ A plugin for [Hubra](https://hubra.club). Member to member: photo albums that re
 | --- | --- |
 | Gallery | Albums per event. Members add photos to open albums (20 at a time); gallery managers create albums and can close one to members. Every photo is re-encoded on upload: location and other metadata are removed, it is scaled to at most 2560 px and gets a 640 px preview. Photos are kept in Hubra's file store, encrypted with the club's key, and only members can open them. |
 | Photo consent | Each member decides whether others may tag them ("Fotos von mir"). Switching it off removes their existing tags, and nobody can tag them again. Anyone tagged can remove their own tag. |
-| Skills & lending | Members list what they lend (trailer, beamer). Everyone can search it. What members can do (electrician, graphic design) is a qualification now: *Wer kann was* in the Guides plugin. |
+| ~~Skills & lending~~ | Gone. What members can do (electrician, graphic design) is a qualification: *Wer kann was* in the Guides plugin. What members lend to the club (trailer, beamer) is an item in the Inventory plugin that stays theirs; old entries move there by themselves once Inventory is on. |
 | Idea box | Members suggest ideas, optionally anonymously, and vote. The board sets a status (open, planned, done, declined) and answers; the author gets a notification. One click turns an idea into a poll in Umfragen with For, Against and Abstain. |
 | Honours | Honorary members, visible to every member (the note only to the board). The board sees coming membership jubilees (10, 15, 20 … years) and round birthdays (50, 60, 70, 75, 80 …) and gets a bell two weeks before each. |
 | Welcome | The board sets a checklist for new members, with links into Hubra. Two steps can tick themselves: the membership fee is paid, or the member has a profile photo. For their first six months, new members see the checklist on their dashboard until it is done; the board sees who is stuck. |

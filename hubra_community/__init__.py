@@ -3,7 +3,8 @@
 - Gallery: photo albums. Photos are re-encoded on upload (no location or
   camera data is kept) and stored in Hubra's file store. Members who say
   "no photos of me" can't be tagged, and their tags go.
-- Skills: members list what they can do or lend; everyone can search it.
+- Lending: what members lend to the club lives in Inventory now (items
+  that stay the member's own); old entries move there by themselves.
 - Ideas: members post suggestions (anonymous if they like), others vote,
   the board answers or turns one into a poll.
 - Welcome: a checklist for new members; the board sees who is stuck.
@@ -22,7 +23,7 @@ from hubra.core.modules import Blueprint, Module, NavItem, Schedule
 module = Module(
     code="community",
     name="Community",
-    description="Gallery, skills, ideas, welcome checklist and honours",
+    description="Gallery, ideas, welcome checklist and honours",
     default_enabled=False,
     depends_on=("members",),
     blueprints=(
@@ -40,6 +41,8 @@ module = Module(
     tasks=("hubra_community.tasks",),
     schedule=(
         Schedule("community-jubilees-daily", "hubra_community.tasks.jubilees", 86400.0),
+        # Until every old "lend" entry is in Inventory; a no-op after that.
+        Schedule("community-move-lending", "hubra_community.tasks.move_lending", 3600.0),
     ),
     tables=(
         "community_albums",
@@ -57,5 +60,6 @@ module = Module(
     # Hubra's features it uses, through contracts (docs/contracts.md in hubra).
     consumes={
         "polls.poll.create": ">=1,<2",
+        "inventory.items.lend": ">=1,<2",
     },
 )
