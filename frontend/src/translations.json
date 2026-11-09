@@ -72,7 +72,7 @@
       },
       "skills": {
         "intro": "What members lend to the club: a trailer for the tournament, a projector for the AGM.",
-        "search": "Search, e.g. electrician",
+        "search": "Search, e.g. trailer",
         "lendBadge": "lends",
         "add": "Add entry",
         "edit": "Edit entry",
@@ -251,7 +251,7 @@
       },
       "skills": {
         "intro": "Was Mitglieder dem Verein ausleihen: ein Anhänger fürs Turnier, ein Beamer für die GV.",
-        "search": "Suchen, z. B. Elektriker",
+        "search": "Suchen, z. B. Anhänger",
         "lendBadge": "leiht aus",
         "add": "Eintrag hinzufügen",
         "edit": "Eintrag bearbeiten",
