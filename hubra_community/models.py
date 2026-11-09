@@ -149,7 +149,11 @@ class CommunityIdeaVote(db.Model):
 
 
 class CommunityHonour(db.Model):
-    """An honour the club gave a member (Ehrenmitglied, Freimitglied …)."""
+    """An honour kept before 1.1.0 (Ehrenmitglied, Freimitglied …).
+
+    Honorary members are a membership tier now. Old rows stay until the
+    board moves them onto that tier or drops them on the Honours tab.
+    """
 
     __tablename__ = "community_honours"
 
