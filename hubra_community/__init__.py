@@ -7,17 +7,18 @@
 - Ideas: members post suggestions (anonymous if they like), others vote,
   the board answers or turns one into a poll.
 - Welcome: a checklist for new members; the board sees who is stuck.
-- Honours: honorary members, and a reminder to the board of membership
-  jubilees and round birthdays.
+- Honours: honorary members are members of a tier the board picks (a
+  membership tier like any other, usually without a fee), and a reminder
+  to the board of membership jubilees and round birthdays.
 
 Permissions:
     community.galleries.update   create albums, manage every photo
     community.ideas.update       answer ideas and turn them into polls
     community.welcome.update     set the welcome steps, see who is stuck
-    community.honours.update     keep honorary members, see jubilees
+    community.honours.update     pick the honorary tier, see jubilees
 """
 
-from hubra.core.modules import Blueprint, Module, NavItem, Schedule
+from hubra.core.modules import Blueprint, Module, NavItem, Schedule, SettingField
 
 module = Module(
     code="community",
@@ -35,6 +36,15 @@ module = Module(
             "users-group",
             section="more",
             order=29,
+        ),
+    ),
+    settings=(
+        SettingField(
+            "honour_tier_id",
+            "int",
+            label="Honorary members' tier",
+            description="Members of this tier show as honorary members. "
+            "Pick it on the Honours tab of Community.",
         ),
     ),
     tasks=("hubra_community.tasks",),
