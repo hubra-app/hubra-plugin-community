@@ -1,4 +1,4 @@
-"""The Community plugin: gallery with photo consent, skills, the idea box,
+"""The Community plugin: gallery with photo consent, the idea box,
 honorary members and jubilees, and the welcome checklist.
 
 Runs with Hubra's fixtures once the plugin is in plugins/community of a
@@ -128,30 +128,10 @@ def test_gallery_upload_tags_and_consent(client, club):
     assert client.get(f"{BASE}/photos/{photo['id']}/file").status_code == 404
 
 
-def test_skills_and_the_idea_box(client, db, club):
+def test_the_idea_box(client, db, club):
     from hubra.core.models.notification import Notification
 
-    _login(client, "max@test.ch")
-    client.post(
-        f"{BASE}/skills",
-        json={"kind": "skill", "title": "Elektriker", "description": "EFZ"},
-    )
-    lend = client.post(
-        f"{BASE}/skills", json={"kind": "lend", "title": "Anhänger"}
-    ).get_json()
-    assert (
-        client.post(f"{BASE}/skills", json={"kind": "car", "title": "x"}).status_code
-        == 400
-    )
     _login(client, "lea@test.ch")
-    assert [s["title"] for s in client.get(f"{BASE}/skills?q=efz").get_json()] == [
-        "Elektriker"
-    ]
-    assert [s["title"] for s in client.get(f"{BASE}/skills?kind=lend").get_json()] == [
-        "Anhänger"
-    ]
-    assert client.delete(f"{BASE}/skills/{lend['id']}").status_code == 403
-
     idea = client.post(
         f"{BASE}/ideas", json={"title": "Grillplatz beim Clubhaus", "anonymous": True}
     ).get_json()
@@ -345,3 +325,88 @@ def test_welcome_checklist(client, db, club):
     assert "Test Lea" not in by
     assert by["Test Max"]["done"] == 2
     assert by["Test Ida"]["missing"] == ["Zum Training kommen", "Foto hochladen"]
+
+
+# ── Lending moved to Inventory ───────────────────────────────────────────────
+
+
+def _old_entries(db, club):
+    from hubra_community.models import CommunitySkill
+
+    rows = [
+        CommunitySkill(member_id=club["max"], kind="lend", title="Anhänger",
+                       description="mit Plane"),
+        CommunitySkill(member_id=club["lea"], kind="lend", title="Beamer"),
+        CommunitySkill(member_id=club["max"], kind="skill", title="Elektriker"),
+    ]
+    db.session.add_all(rows)
+    db.session.commit()
+    return rows
+
+
+def test_the_skills_tab_is_gone(client, club):
+    _login(client, "max@test.ch")
+    assert client.get(f"{BASE}/skills").status_code == 404
+
+
+def test_lending_waits_for_inventory(db, club, monkeypatch):
+    from hubra_community import services
+    from hubra_community.models import CommunitySkill
+
+    _old_entries(db, club)
+    monkeypatch.setattr("hubra.core.contracts.available", lambda name: False)
+    assert services.move_lending() == 0
+    assert db.session.query(CommunitySkill).count() == 3
+
+
+def test_lending_moves_to_inventory(db, club, monkeypatch):
+    from hubra.core import contracts
+    from hubra_community import services
+    from hubra_community.models import CommunitySkill
+
+    _old_entries(db, club)
+    sent = []
+
+    def fake_call(contract, /, *, actor=None, **data):
+        assert contract == "inventory.items.lend" and actor is contracts.SYSTEM
+        if data["name"] == "Beamer":
+            raise contracts.ActionFailed("inventory broke")
+        sent.append(data)
+        return {"id": 1}
+
+    monkeypatch.setattr("hubra.core.contracts.available", lambda name: True)
+    monkeypatch.setattr("hubra.core.contracts.call", fake_call)
+    assert services.move_lending() == 1
+    db.session.commit()
+    assert sent == [{"member_id": club["max"], "name": "Anhänger",
+                     "description": "mit Plane"}]
+    # The one Inventory failed on waits for the next run; what members can
+    # do stays for Guides to copy into its qualifications.
+    left = sorted(r.title for r in db.session.query(CommunitySkill))
+    assert left == ["Beamer", "Elektriker"]
+
+
+def test_lending_into_the_real_inventory(app, db, club):
+    """With the Inventory plugin next to this one, the entries become items
+    that stay the member's own."""
+    pytest.importorskip("hubra_inventory")
+    from hubra_community import services
+    from hubra_community.models import CommunitySkill
+    from hubra.core.contracts import registry
+
+    if registry.get("inventory.items.lend") is None:
+        pytest.skip("Inventory without inventory.items.lend")
+    set_modules(True, "community", "inventory")
+    _old_entries(db, club)
+    assert services.move_lending() == 2
+    db.session.commit()
+    from sqlalchemy import text
+
+    rows = db.session.execute(
+        text("SELECT name, owner_id, visibility FROM inventory_items ORDER BY name")
+    ).all()
+    assert [tuple(r) for r in rows] == [
+        ("Anhänger", club["max"], "private"),
+        ("Beamer", club["lea"], "private"),
+    ]
+    assert [r.kind for r in db.session.query(CommunitySkill)] == ["skill"]

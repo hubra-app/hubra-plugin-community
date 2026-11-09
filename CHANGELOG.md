@@ -1,5 +1,19 @@
 # Community
 
+## 1.2.0
+
+- What members can do ("Kann") moved to qualifications: the Guides plugin's
+  *Wer kann was* page (Guides 1.5.0), where members add it to themselves and
+  others confirm it. Old entries stay in `community_skills` for Guides to
+  copy.
+- What members lend to the club moved to Inventory, so the Skills & lending
+  tab is gone (and the `/skills` API with it). An hourly job hands every old
+  "lend" entry to Inventory through the `inventory.items.lend` contract,
+  where it becomes an item that stays the member's own ("Lent by Anna"),
+  and removes the entry once Inventory has it. Without Inventory (2.2 or
+  later, switched on) the entries wait. Community still imports nothing
+  from Guides or Inventory.
+
 ## 1.1.0
 
 Honorary members are a membership tier now, like every other kind of

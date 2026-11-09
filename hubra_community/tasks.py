@@ -18,3 +18,13 @@ def jubilees() -> int:
     sent = services.notify_jubilees(date.today())
     db.session.commit()
     return sent
+
+
+@celery_app.task(name="hubra_community.tasks.move_lending")
+@per_tenant_job("community")
+def move_lending() -> int:
+    from hubra.core.extensions import db
+
+    moved = services.move_lending()
+    db.session.commit()
+    return moved

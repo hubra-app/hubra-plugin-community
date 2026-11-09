@@ -25,7 +25,6 @@
       "description": "Description",
       "tabs": {
         "gallery": "Gallery",
-        "skills": "Skills & lending",
         "ideas": "Idea box",
         "honours": "Honours",
         "welcome": "Welcome"
@@ -69,25 +68,6 @@
         "untagged": "Your tag was removed",
         "deletePhotoTitle": "Delete this photo?",
         "deletePhotoBody": "The photo is deleted for good."
-      },
-      "skills": {
-        "intro": "What members can do or lend to the club: an electrician for the clubhouse, a trailer for the tournament.",
-        "search": "Search, e.g. electrician",
-        "all": "All",
-        "kindSkill": "Can do",
-        "kindLend": "Lends",
-        "skillBadge": "can do",
-        "lendBadge": "lends",
-        "add": "Add entry",
-        "edit": "Edit entry",
-        "kind": "Kind",
-        "title": "What",
-        "skillExample": "Electrician",
-        "lendExample": "Car trailer",
-        "descriptionHint": "When and how others can reach you about it.",
-        "none": "Nobody has added anything yet",
-        "noneHint": "Start with what you can do or lend.",
-        "noMatch": "Nothing found"
       },
       "ideas": {
         "filterActive": "Open",
@@ -215,7 +195,6 @@
       "description": "Beschreibung",
       "tabs": {
         "gallery": "Galerie",
-        "skills": "Können & Leihen",
         "ideas": "Ideenbox",
         "honours": "Ehrungen",
         "welcome": "Willkommen"
@@ -259,25 +238,6 @@
         "untagged": "Deine Markierung ist entfernt",
         "deletePhotoTitle": "Foto löschen?",
         "deletePhotoBody": "Das Foto wird endgültig gelöscht."
-      },
-      "skills": {
-        "intro": "Was Mitglieder können oder dem Verein ausleihen: ein Elektriker fürs Clubhaus, ein Anhänger fürs Turnier.",
-        "search": "Suchen, z. B. Elektriker",
-        "all": "Alle",
-        "kindSkill": "Kann",
-        "kindLend": "Leiht aus",
-        "skillBadge": "kann",
-        "lendBadge": "leiht aus",
-        "add": "Eintrag hinzufügen",
-        "edit": "Eintrag bearbeiten",
-        "kind": "Art",
-        "title": "Was",
-        "skillExample": "Elektriker",
-        "lendExample": "Autoanhänger",
-        "descriptionHint": "Wann und wie man dich dafür erreicht.",
-        "none": "Noch niemand hat etwas eingetragen",
-        "noneHint": "Fang mit dem an, was du kannst oder ausleihst.",
-        "noMatch": "Nichts gefunden"
       },
       "ideas": {
         "filterActive": "Offen",

@@ -9,7 +9,6 @@ registerPlugin({
   id: 'community',
   routes: [
     { path: 'community', module: 'community', component: CommunityScreen },
-    { path: 'community/skills', module: 'community', component: CommunityScreen },
     { path: 'community/ideas', module: 'community', component: CommunityScreen },
     { path: 'community/honours', module: 'community', component: CommunityScreen },
     { path: 'community/welcome', module: 'community', component: CommunityScreen },
