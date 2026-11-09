@@ -14,8 +14,8 @@ PATCH  /photos/<id>                   {caption?, tags?: [memberId]}
 DELETE /photos/<id>                   the uploader or a gallery manager
 DELETE /photos/<id>/tags/me           untag oneself
 
-GET    /skills?q=&kind=               what members can do or lend
-POST   /skills                        {kind: skill|lend, title, description?}
+GET    /skills?q=                     what members lend
+POST   /skills                        {kind: lend, title, description?}
 PATCH  /skills/<id>                   own entries
 DELETE /skills/<id>
 
@@ -546,9 +546,9 @@ def list_skills():
         .where(Member.archived_at.is_(None))
         .order_by(func.lower(CommunitySkill.title))
     )
-    kind = request.args.get("kind")
-    if kind in ("skill", "lend"):
-        query = query.where(CommunitySkill.kind == kind)
+    # What members can do moved to qualifications (Guides, "Wer kann was");
+    # old "skill" rows stay in the table for its migration to copy.
+    query = query.where(CommunitySkill.kind == "lend")
     q = (request.args.get("q") or "").strip()[:80]
     if q:
         like = f"%{q.lower()}%"
@@ -565,9 +565,14 @@ def list_skills():
 
 def _skill_fields(s: CommunitySkill, data: dict, creating: bool) -> None:
     if creating or "kind" in data:
-        kind = data.get("kind") or "skill"
-        if kind not in ("skill", "lend"):
-            raise Invalid("kind must be skill or lend")
+        kind = data.get("kind") or "lend"
+        if kind == "skill":
+            raise Invalid(
+                "what members can do is a qualification now: add it under "
+                "Wer kann was (Guides)"
+            )
+        if kind != "lend":
+            raise Invalid("kind must be lend")
         s.kind = kind
     if creating or "title" in data:
         s.title = _text(data, "title", 120, required=True)
@@ -583,6 +588,7 @@ def create_skill():
         select(func.count())
         .select_from(CommunitySkill)
         .where(CommunitySkill.member_id == member.id)
+        .where(CommunitySkill.kind == "lend")
     )
     if count >= 50:
         raise Invalid("at most 50 entries per member")
@@ -598,6 +604,8 @@ def _own_skill(skill_id: int):
     s, err = _get(CommunitySkill, skill_id)
     if err:
         return None, err
+    if s.kind != "lend":
+        return None, api_error("NOT_FOUND", "not found", 404)
     if s.member_id != member.id:
         return None, api_error("FORBIDDEN", "not your entry", 403)
     return s, None

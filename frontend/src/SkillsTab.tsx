@@ -1,25 +1,32 @@
 import { useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ActionIcon, Badge, Button, Group, Paper, SimpleGrid, Stack, Text, TextInput, Textarea } from '@mantine/core'
+import { ActionIcon, Anchor, Badge, Button, Group, Paper, SimpleGrid, Stack, Text, TextInput, Textarea } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { IconPencil, IconPlus, IconSearch, IconTools } from '@tabler/icons-react'
-import { EmptyState, ErrorBanner, Field, LoadingSpinner, Modal, Seg, useT } from '@hubra/plugin-sdk'
+import { EmptyState, ErrorBanner, Field, LoadingSpinner, Modal, useModules, useNav, useT } from '@hubra/plugin-sdk'
 import { QK, deleteSkill, errorText, listSkills, saveSkill, type Skill } from './api'
 import { useAction } from './common'
 
-/** Who in the club can do what, and who lends what. */
+/** Who lends what. What members can do is a qualification ("Wer kann
+ *  was"), so it lives with the qualifications, not here. */
 export function SkillsTab() {
   const { t } = useT()
+  const { has } = useModules()
+  const { go } = useNav()
   const [q, setQ] = useState('')
-  const [kind, setKind] = useState('all')
   const [search] = useDebouncedValue(q.trim(), 250)
-  const skills = useQuery({ queryKey: QK.skills(search, kind), queryFn: () => listSkills(search, kind) })
+  const skills = useQuery({ queryKey: QK.skills(search, 'lend'), queryFn: () => listSkills(search, 'lend') })
   const [editing, setEditing] = useState<Skill | 'new' | null>(null)
 
   return (
     <>
       <Text size="sm" c="dimmed" mb="md">
-        {t('community.skills.intro')}
+        {t('community.skills.intro')}{' '}
+        {has('inventory.guides') && (
+          <Anchor component="button" type="button" size="sm" onClick={() => go('/app/skills')}>
+            {t('community.skills.canDoMoved')}
+          </Anchor>
+        )}
       </Text>
       <Group justify="space-between" mb="md" wrap="wrap" gap="sm">
         <Group gap="sm" wrap="wrap" style={{ flex: 1 }}>
@@ -29,15 +36,6 @@ export function SkillsTab() {
             value={q}
             onChange={(e) => setQ(e.currentTarget.value)}
             style={{ flex: 1, minWidth: 200, maxWidth: 360 }}
-          />
-          <Seg
-            value={kind}
-            onChange={setKind}
-            options={[
-              { value: 'all', label: t('community.skills.all') },
-              { value: 'skill', label: t('community.skills.kindSkill') },
-              { value: 'lend', label: t('community.skills.kindLend') },
-            ]}
           />
         </Group>
         <Button leftSection={<IconPlus size={16} />} onClick={() => setEditing('new')}>
@@ -60,8 +58,8 @@ export function SkillsTab() {
                     <Text fw={700} truncate>
                       {s.title}
                     </Text>
-                    <Badge size="sm" variant="light" color={s.kind === 'lend' ? 'teal' : 'violet'} style={{ textTransform: 'none', flexShrink: 0 }}>
-                      {s.kind === 'lend' ? t('community.skills.lendBadge') : t('community.skills.skillBadge')}
+                    <Badge size="sm" variant="light" color="teal" style={{ textTransform: 'none', flexShrink: 0 }}>
+                      {t('community.skills.lendBadge')}
                     </Badge>
                   </Group>
                   {s.description && (
@@ -90,7 +88,6 @@ function SkillModal({ skill, onClose }: { skill: Skill | null; onClose: () => vo
   const { t } = useT()
   const qc = useQueryClient()
   const { busy, run } = useAction()
-  const [kind, setKind] = useState<string>(skill?.kind ?? 'skill')
   const [title, setTitle] = useState(skill?.title ?? '')
   const [description, setDescription] = useState(skill?.description ?? '')
   const done = () => {
@@ -99,7 +96,7 @@ function SkillModal({ skill, onClose }: { skill: Skill | null; onClose: () => vo
   }
   const submit = async (e?: FormEvent) => {
     e?.preventDefault()
-    if (await run(() => saveSkill({ kind, title, description: description || null }, skill?.id), t('community.saved'))) done()
+    if (await run(() => saveSkill({ kind: 'lend', title, description: description || null }, skill?.id), t('community.saved'))) done()
   }
   return (
     <Modal
@@ -127,21 +124,11 @@ function SkillModal({ skill, onClose }: { skill: Skill | null; onClose: () => vo
         </Group>
       }
     >
-      <Field label={t('community.skills.kind')}>
-        <Seg
-          value={kind}
-          onChange={setKind}
-          options={[
-            { value: 'skill', label: t('community.skills.kindSkill') },
-            { value: 'lend', label: t('community.skills.kindLend') },
-          ]}
-        />
-      </Field>
       <Field label={t('community.skills.title')}>
         <TextInput
           value={title}
           onChange={(e) => setTitle(e.currentTarget.value)}
-          placeholder={kind === 'lend' ? t('community.skills.lendExample') : t('community.skills.skillExample')}
+          placeholder={t('community.skills.lendExample')}
           data-autofocus
         />
       </Field>

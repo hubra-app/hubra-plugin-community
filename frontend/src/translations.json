@@ -71,23 +71,18 @@
         "deletePhotoBody": "The photo is deleted for good."
       },
       "skills": {
-        "intro": "What members can do or lend to the club: an electrician for the clubhouse, a trailer for the tournament.",
+        "intro": "What members lend to the club: a trailer for the tournament, a projector for the AGM.",
         "search": "Search, e.g. electrician",
-        "all": "All",
-        "kindSkill": "Can do",
-        "kindLend": "Lends",
-        "skillBadge": "can do",
         "lendBadge": "lends",
         "add": "Add entry",
         "edit": "Edit entry",
-        "kind": "Kind",
         "title": "What",
-        "skillExample": "Electrician",
         "lendExample": "Car trailer",
         "descriptionHint": "When and how others can reach you about it.",
         "none": "Nobody has added anything yet",
-        "noneHint": "Start with what you can do or lend.",
-        "noMatch": "Nothing found"
+        "noneHint": "Start with what you can lend.",
+        "noMatch": "Nothing found",
+        "canDoMoved": "What members can do is under Who can do what."
       },
       "ideas": {
         "filterActive": "Open",
@@ -255,23 +250,18 @@
         "deletePhotoBody": "Das Foto wird endgültig gelöscht."
       },
       "skills": {
-        "intro": "Was Mitglieder können oder dem Verein ausleihen: ein Elektriker fürs Clubhaus, ein Anhänger fürs Turnier.",
+        "intro": "Was Mitglieder dem Verein ausleihen: ein Anhänger fürs Turnier, ein Beamer für die GV.",
         "search": "Suchen, z. B. Elektriker",
-        "all": "Alle",
-        "kindSkill": "Kann",
-        "kindLend": "Leiht aus",
-        "skillBadge": "kann",
         "lendBadge": "leiht aus",
         "add": "Eintrag hinzufügen",
         "edit": "Eintrag bearbeiten",
-        "kind": "Art",
         "title": "Was",
-        "skillExample": "Elektriker",
         "lendExample": "Autoanhänger",
         "descriptionHint": "Wann und wie man dich dafür erreicht.",
         "none": "Noch niemand hat etwas eingetragen",
-        "noneHint": "Fang mit dem an, was du kannst oder ausleihst.",
-        "noMatch": "Nichts gefunden"
+        "noneHint": "Fang mit dem an, was du ausleihst.",
+        "noMatch": "Nichts gefunden",
+        "canDoMoved": "Was Mitglieder können, steht unter Wer kann was."
       },
       "ideas": {
         "filterActive": "Offen",

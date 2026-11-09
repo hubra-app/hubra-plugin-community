@@ -130,23 +130,34 @@ def test_gallery_upload_tags_and_consent(client, club):
 def test_skills_and_the_idea_box(client, db, club):
     from hubra.core.models.notification import Notification
 
+    from hubra_community.models import CommunitySkill
+
     _login(client, "max@test.ch")
-    client.post(
-        f"{BASE}/skills",
-        json={"kind": "skill", "title": "Elektriker", "description": "EFZ"},
+    # What members can do is a qualification now (Guides), not an entry here.
+    assert (
+        client.post(
+            f"{BASE}/skills", json={"kind": "skill", "title": "Elektriker"}
+        ).status_code
+        == 400
     )
+    old = CommunitySkill(member_id=club["max"], kind="skill", title="Elektriker")
+    db.session.add(old)
+    db.session.commit()
     lend = client.post(
-        f"{BASE}/skills", json={"kind": "lend", "title": "Anhänger"}
+        f"{BASE}/skills",
+        json={"kind": "lend", "title": "Anhänger", "description": "mit Plane"},
     ).get_json()
+    assert lend["kind"] == "lend"
     assert (
         client.post(f"{BASE}/skills", json={"kind": "car", "title": "x"}).status_code
         == 400
     )
+    assert client.delete(f"{BASE}/skills/{old.id}").status_code == 404
     _login(client, "lea@test.ch")
-    assert [s["title"] for s in client.get(f"{BASE}/skills?q=efz").get_json()] == [
-        "Elektriker"
+    assert [s["title"] for s in client.get(f"{BASE}/skills").get_json()] == [
+        "Anhänger"
     ]
-    assert [s["title"] for s in client.get(f"{BASE}/skills?kind=lend").get_json()] == [
+    assert [s["title"] for s in client.get(f"{BASE}/skills?q=plane").get_json()] == [
         "Anhänger"
     ]
     assert client.delete(f"{BASE}/skills/{lend['id']}").status_code == 403
