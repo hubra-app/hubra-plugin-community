@@ -23,6 +23,9 @@ from hubra.core.modules import Blueprint, Module, NavItem, Schedule, SettingFiel
 
 module = Module(
     code="community",
+    # Access the standard roles get when a club first switches it on
+    # (docs/roles.md in hubra-app/hubra).
+    role_defaults={"member": "view", "board": "edit"},
     name="Community",
     description="Gallery, ideas, welcome checklist and honours",
     default_enabled=False,
