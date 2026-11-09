@@ -4,7 +4,7 @@
 
 A plugin for [Hubra](https://hubra.club). Member to member: photo albums that respect who doesn't want to be tagged, an idea box with votes, a welcome checklist for new members, and jubilees and honorary members for the board.
 
-**Version** 1.1.0 · **Works with** Hubra >=0.2,<1 · **Plugin id** `community` · **Needs** the members module (and polls, to turn ideas into polls; the file store, for photos)
+**Version** 1.2.0 · **Works with** Hubra >=0.2,<1 · **Plugin id** `community` · **Needs** the members module (and polls, to turn ideas into polls; the file store, for photos)
 
 ![Gallery](docs/screenshots/gallery.png)
 
@@ -16,13 +16,13 @@ A plugin for [Hubra](https://hubra.club). Member to member: photo albums that re
 | Photo consent | Each member decides whether others may tag them ("Fotos von mir"). Switching it off removes their existing tags, and nobody can tag them again. Anyone tagged can remove their own tag. |
 | ~~Skills & lending~~ | Gone. What members can do (electrician, graphic design) is a qualification: *Wer kann was* in the Guides plugin. What members lend to the club (trailer, beamer) is an item in the Inventory plugin that stays theirs; old entries move there by themselves once Inventory is on. |
 | Idea box | Members suggest ideas, optionally anonymously, and vote. The board sets a status (open, planned, done, declined) and answers; the author gets a notification. One click turns an idea into a poll in Umfragen with For, Against and Abstain. |
-| Honours | Honorary members, visible to every member (the note only to the board). The board sees coming membership jubilees (10, 15, 20 … years) and round birthdays (50, 60, 70, 75, 80 …) and gets a bell two weeks before each. |
+| Honours | Honorary members are a membership tier like any other: the board picks which tier, gives members that tier in Mitglieder (its fee applies, usually none), and every member sees who is in it. The board sees coming membership jubilees (10, 15, 20 … years) and round birthdays (50, 60, 70, 75, 80 …) and gets a bell two weeks before each. |
 | Welcome | The board sets a checklist for new members, with links into Hubra. Two steps can tick themselves: the membership fee is paid, or the member has a profile photo. For their first six months, new members see the checklist on their dashboard until it is done; the board sees who is stuck. |
 
 Permissions: `community.galleries.update` (albums and every photo),
 `community.ideas.update` (answer ideas, start polls),
-`community.honours.update` (honorary members, jubilees and their
-reminders), `community.welcome.update` (welcome steps and progress).
+`community.honours.update` (pick the honorary tier, jubilees and
+their reminders), `community.welcome.update` (welcome steps and progress).
 
 A daily job sends the jubilee reminders.
 

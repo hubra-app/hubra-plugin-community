@@ -1,23 +1,25 @@
-import { useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ActionIcon, Badge, Button, Group, Paper, SimpleGrid, Stack, Table, Text, TextInput } from '@mantine/core'
-import { IconAward, IconCake, IconPencil, IconPlus, IconStar } from '@tabler/icons-react'
-import { EmptyState, ErrorBanner, Field, LoadingSpinner, MemberPicker, Modal, useT } from '@hubra/plugin-sdk'
-import { QK, deleteHonour, errorText, fmtDate, listHonours, listJubilees, saveHonour, type Honour, type Options } from './api'
+import { useNavigate } from 'react-router-dom'
+import { Alert, Badge, Button, Group, Paper, Select, SimpleGrid, Stack, Table, Text } from '@mantine/core'
+import { IconAward, IconCake, IconExternalLink, IconStar } from '@tabler/icons-react'
+import { EmptyState, ErrorBanner, LoadingSpinner, useT } from '@hubra/plugin-sdk'
+import { QK, fmtDate, errorText, listHonours, listJubilees, setHonourTier, settleLegacyHonours, type Honours, type Options } from './api'
 import { useAction, useLocale } from './common'
 
-/** Honorary members for everyone; coming jubilees for whoever keeps them. */
+/** Honorary members (a membership tier) for everyone; coming jubilees and
+ *  the choice of tier for whoever keeps honours. */
 export function HonoursTab({ options }: { options: Options }) {
   const { t } = useT()
   const locale = useLocale()
+  const navigate = useNavigate()
   const manage = options.can.honours
   const honours = useQuery({ queryKey: QK.honours, queryFn: listHonours })
   const jubilees = useQuery({ queryKey: QK.jubilees, queryFn: () => listJubilees(90), enabled: manage })
-  const [editing, setEditing] = useState<Honour | 'new' | null>(null)
 
   if (honours.error) return <ErrorBanner message={errorText(honours.error)} onRetry={() => honours.refetch()} />
-  if (honours.isLoading) return <LoadingSpinner />
-  const list = honours.data ?? []
+  if (honours.isLoading || !honours.data) return <LoadingSpinner />
+  const data = honours.data
+  const list = data.members
 
   return (
     <Stack gap="xl">
@@ -67,113 +69,140 @@ export function HonoursTab({ options }: { options: Options }) {
       )}
       <section>
         <Group justify="space-between" mb="sm" wrap="wrap" gap="sm">
-          <Text fw={700}>{t('community.honours.title')}</Text>
-          {manage && (
-            <Button size="sm" leftSection={<IconPlus size={16} />} onClick={() => setEditing('new')}>
-              {t('community.honours.add')}
+          <Group gap="xs">
+            <Text fw={700}>{t('community.honours.title')}</Text>
+            {data.tier && (
+              <Badge size="sm" variant="light" color="yellow" style={{ textTransform: 'none' }}>
+                {data.tier.name}
+              </Badge>
+            )}
+          </Group>
+          {manage && data.tier && (
+            <Button size="sm" variant="default" leftSection={<IconExternalLink size={16} />} onClick={() => navigate(`/app/members/tiers/${data.tier!.id}`)}>
+              {t('community.honours.openTier')}
             </Button>
           )}
         </Group>
+        {manage && <TierPicker data={data} />}
         {!list.length ? (
-          <EmptyState icon={<IconAward size={28} />} title={t('community.honours.none')} />
+          <EmptyState
+            icon={<IconAward size={28} />}
+            title={t('community.honours.none')}
+            description={manage ? t(data.tier ? 'community.honours.noneHint' : 'community.honours.noTierHint') : undefined}
+          />
         ) : (
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
             {list.map((h) => (
-              <Paper key={h.id} withBorder radius="md" p="md">
-                <Group justify="space-between" wrap="nowrap" align="flex-start">
-                  <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                    <IconAward size={26} color="var(--mantine-color-yellow-filled)" style={{ flexShrink: 0 }} />
-                    <div style={{ minWidth: 0 }}>
-                      <Text fw={700} truncate>
-                        {h.name}
+              <Paper key={h.memberId} withBorder radius="md" p="md">
+                <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                  <IconAward size={26} color="var(--mantine-color-yellow-filled)" style={{ flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <Text fw={700} truncate>
+                      {h.name}
+                    </Text>
+                    {h.since && (
+                      <Text size="xs" c="dimmed">
+                        {t('community.honours.memberSince', { date: fmtDate(h.since, locale) })}
                       </Text>
-                      <Group gap={6}>
-                        <Badge size="sm" variant="light" color="yellow" style={{ textTransform: 'none' }}>
-                          {h.title}
-                        </Badge>
-                        {h.awardedOn && (
-                          <Text size="xs" c="dimmed">
-                            {t('community.honours.since', { date: fmtDate(h.awardedOn, locale) })}
-                          </Text>
-                        )}
-                      </Group>
-                      {h.note && (
-                        <Text size="xs" c="dimmed" mt={4}>
-                          {h.note}
-                        </Text>
-                      )}
-                    </div>
-                  </Group>
-                  {manage && (
-                    <ActionIcon variant="subtle" onClick={() => setEditing(h)} aria-label={t('community.edit')}>
-                      <IconPencil size={16} />
-                    </ActionIcon>
-                  )}
+                    )}
+                  </div>
                 </Group>
               </Paper>
             ))}
           </SimpleGrid>
         )}
       </section>
-      {editing && <HonourModal honour={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {manage && !!data.legacy?.length && <LegacyHonours data={data} />}
     </Stack>
   )
 }
 
-function HonourModal({ honour, onClose }: { honour: Honour | null; onClose: () => void }) {
+/** Which tier holds the honorary members. */
+function TierPicker({ data }: { data: Honours }) {
   const { t } = useT()
   const qc = useQueryClient()
   const { busy, run } = useAction()
-  const [memberId, setMemberId] = useState<string | null>(honour ? String(honour.memberId) : null)
-  const [title, setTitle] = useState(honour?.title ?? t('community.honours.defaultTitle'))
-  const [awardedOn, setAwardedOn] = useState(honour?.awardedOn ?? '')
-  const [note, setNote] = useState(honour?.note ?? '')
-  const done = () => {
-    qc.invalidateQueries({ queryKey: QK.honours })
-    onClose()
-  }
-  const submit = async (e?: FormEvent) => {
-    e?.preventDefault()
-    if (await run(() => saveHonour({ memberId: Number(memberId), title, awardedOn: awardedOn || null, note: note || null }, honour?.id), t('community.saved'))) done()
+  const choose = async (value: string | null) => {
+    let fresh: Honours | undefined
+    if (await run(async () => (fresh = await setHonourTier(value ? Number(value) : null)), t('community.saved'))) {
+      qc.setQueryData(QK.honours, fresh)
+    }
   }
   return (
-    <Modal
-      open
-      onClose={onClose}
-      onSubmit={submit}
-      title={honour ? t('community.honours.edit') : t('community.honours.add')}
-      footer={
-        <Group justify="space-between" w="100%">
-          <div>
-            {honour && (
-              <Button variant="subtle" color="red" onClick={async () => (await run(() => deleteHonour(honour.id))) && done()}>
-                {t('community.delete')}
-              </Button>
-            )}
-          </div>
-          <Group gap="xs">
-            <Button variant="default" onClick={onClose}>
-              {t('community.cancel')}
-            </Button>
-            <Button type="submit" loading={busy} disabled={!memberId || !title.trim()}>
-              {t('community.save')}
-            </Button>
-          </Group>
+    <Paper withBorder radius="md" p="md" mb="sm">
+      <Select
+        label={t('community.honours.tier')}
+        description={t('community.honours.tierHint')}
+        placeholder={t('community.honours.pickTier')}
+        data={(data.tiers ?? []).map((tier) => ({
+          value: String(tier.id),
+          label: t('community.honours.tierOption', { name: tier.name, count: tier.members }),
+        }))}
+        value={data.tier ? String(data.tier.id) : null}
+        onChange={choose}
+        disabled={busy}
+        clearable
+        searchable
+        maw={420}
+      />
+    </Paper>
+  )
+}
+
+/** Honours kept with 1.0: move those members onto the tier, or drop them. */
+function LegacyHonours({ data }: { data: Honours }) {
+  const { t } = useT()
+  const locale = useLocale()
+  const qc = useQueryClient()
+  const { busy, run } = useAction()
+  const legacy = data.legacy ?? []
+  const settle = async (action: 'move' | 'discard') => {
+    let fresh: Honours | undefined
+    if (await run(async () => (fresh = await settleLegacyHonours(action)), t('community.saved'))) {
+      qc.setQueryData(QK.honours, fresh)
+    }
+  }
+  return (
+    <section>
+      <Alert color="yellow" variant="light" title={t('community.honours.legacyTitle')} mb="sm">
+        <Text size="sm">{t(data.tier ? 'community.honours.legacyHint' : 'community.honours.legacyNoTier', { tier: data.tier?.name })}</Text>
+        <Group gap="xs" mt="sm">
+          <Button size="xs" onClick={() => settle('move')} loading={busy} disabled={!data.tier}>
+            {t('community.honours.legacyMove', { count: legacy.length })}
+          </Button>
+          <Button size="xs" variant="subtle" color="red" onClick={() => settle('discard')} loading={busy}>
+            {t('community.honours.legacyDiscard')}
+          </Button>
         </Group>
-      }
-    >
-      <Field label={t('community.honours.member')}>
-        <MemberPicker value={memberId} onChange={(id) => setMemberId(id)} />
-      </Field>
-      <Field label={t('community.honours.honourTitle')}>
-        <TextInput value={title} onChange={(e) => setTitle(e.currentTarget.value)} />
-      </Field>
-      <Field label={t('community.honours.awardedOn')}>
-        <TextInput type="date" value={awardedOn} onChange={(e) => setAwardedOn(e.currentTarget.value)} />
-      </Field>
-      <Field label={t('community.honours.note')} hint={t('community.honours.noteHint')}>
-        <TextInput value={note} onChange={(e) => setNote(e.currentTarget.value)} />
-      </Field>
-    </Modal>
+      </Alert>
+      <Paper withBorder radius="md" style={{ overflowX: 'auto' }}>
+        <Table verticalSpacing="xs" horizontalSpacing="md">
+          <Table.Tbody>
+            {legacy.map((h) => (
+              <Table.Tr key={h.id}>
+                <Table.Td>
+                  <Text size="sm" fw={600}>
+                    {h.name}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">{h.title}</Text>
+                </Table.Td>
+                <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                  <Text size="sm" c="dimmed">
+                    {h.awardedOn ? fmtDate(h.awardedOn, locale) : ''}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="xs" c="dimmed">
+                    {h.note}
+                  </Text>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Paper>
+    </section>
   )
 }

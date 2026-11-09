@@ -1,5 +1,5 @@
 """The Community plugin: gallery with photo consent, the idea box,
-honours and jubilees, and the welcome checklist.
+honorary members and jubilees, and the welcome checklist.
 
 Runs with Hubra's fixtures once the plugin is in plugins/community of a
 Hubra checkout (see README.md).
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 from datetime import date, timedelta
+from unittest.mock import patch
 
 import pytest
 
@@ -179,16 +180,6 @@ def test_honours_and_jubilees(app, client, db, club):
     db.session.commit()
 
     _login(client, "hana@test.ch")
-    made = client.post(
-        f"{BASE}/honours",
-        json={
-            "memberId": club["max"],
-            "title": "Ehrenmitglied",
-            "awardedOn": "2024-03-01",
-            "note": "GV 2024",
-        },
-    )
-    assert made.status_code == 201
     got = client.get(f"{BASE}/jubilees?days=30").get_json()
     assert {(j["name"], j["kind"], j["years"]) for j in got} == {
         ("Test Max", "member", 25),
@@ -196,8 +187,6 @@ def test_honours_and_jubilees(app, client, db, club):
     }
 
     _login(client, "max@test.ch")
-    honours = client.get(f"{BASE}/honours").get_json()
-    assert honours[0]["title"] == "Ehrenmitglied" and "note" not in honours[0]
     assert client.get(f"{BASE}/jubilees").status_code == 403
 
     with app.test_request_context():
@@ -209,6 +198,80 @@ def test_honours_and_jubilees(app, client, db, club):
     )
     assert {n.member_id for n in bells} >= {club["hana"]}
     assert club["max"] not in {n.member_id for n in bells}
+
+
+def test_honorary_members_are_a_tier(client, db, club):
+    from hubra_community.models import CommunityHonour
+
+    from hubra.core.models.member import Member, MembershipTier
+
+    # Module settings live per club; the test app has none, so keep them here.
+    store: dict = {}
+    with (
+        patch("hubra.core.modules.get_config", lambda code: dict(store)),
+        patch(
+            "hubra.core.modules.set_config",
+            lambda code, config: store.update(config),
+        ),
+    ):
+        _honorary_members(client, db, club, Member, MembershipTier, CommunityHonour)
+    assert store == {"honour_tier_id": None}
+
+
+def _honorary_members(client, db, club, Member, MembershipTier, CommunityHonour):
+
+    honorary = MembershipTier(name="Ehrenmitglied")
+    db.session.add(honorary)
+    db.session.flush()
+    max_ = db.session.get(Member, club["max"])
+    max_.tier_id = honorary.id
+    # An honour kept with 1.0, for Lea.
+    db.session.add(
+        CommunityHonour(member_id=club["lea"], title="Freimitglied", note="GV 2024")
+    )
+    db.session.commit()
+
+    _login(client, "max@test.ch")
+    got = client.get(f"{BASE}/honours").get_json()
+    assert got["tier"] is None and got["members"] == []
+    assert "tiers" not in got and "legacy" not in got
+    assert (
+        client.put(f"{BASE}/honours/tier", json={"tierId": honorary.id}).status_code
+        == 403
+    )
+    assert (
+        client.post(f"{BASE}/honours/legacy", json={"action": "move"}).status_code
+        == 403
+    )
+
+    _login(client, "hana@test.ch")
+    got = client.get(f"{BASE}/honours").get_json()
+    assert [h["name"] for h in got["legacy"]] == ["Test Lea"]
+    assert {t["name"]: t["members"] for t in got["tiers"]}["Ehrenmitglied"] == 1
+    # Moving needs the tier first.
+    assert (
+        client.post(f"{BASE}/honours/legacy", json={"action": "move"}).status_code
+        == 400
+    )
+    assert client.put(f"{BASE}/honours/tier", json={"tierId": 99999}).status_code == 400
+    got = client.put(f"{BASE}/honours/tier", json={"tierId": honorary.id}).get_json()
+    assert got["tier"]["name"] == "Ehrenmitglied"
+    assert [h["name"] for h in got["members"]] == ["Test Max"]
+
+    got = client.post(f"{BASE}/honours/legacy", json={"action": "move"}).get_json()
+    assert [h["name"] for h in got["members"]] == ["Test Lea", "Test Max"]
+    assert got["legacy"] == []
+    assert db.session.get(Member, club["lea"]).tier_id == honorary.id
+
+    # Every member sees who is in the tier, without the board's extras.
+    _login(client, "lea@test.ch")
+    got = client.get(f"{BASE}/honours").get_json()
+    assert got["tier"]["id"] == honorary.id and len(got["members"]) == 2
+    assert "tiers" not in got
+
+    _login(client, "hana@test.ch")
+    got = client.put(f"{BASE}/honours/tier", json={"tierId": None}).get_json()
+    assert got["tier"] is None and got["members"] == []
 
 
 def test_welcome_checklist(client, db, club):

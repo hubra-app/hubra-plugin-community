@@ -61,13 +61,27 @@ export interface Idea {
   createdAt: string | null
 }
 
-export interface Honour {
+export interface HonourMember {
+  memberId: number
+  name: string
+  since: string | null
+}
+
+export interface LegacyHonour {
   id: number
   memberId: number
   name: string
   title: string
   awardedOn: string | null
-  note?: string | null
+  note: string | null
+}
+
+export interface Honours {
+  tier: { id: number; name: string } | null
+  members: HonourMember[]
+  /** Only for whoever keeps honours. */
+  tiers?: { id: number; name: string; members: number }[]
+  legacy?: LegacyHonour[]
 }
 
 export interface Jubilee {
@@ -162,10 +176,10 @@ export const answerIdea = (id: number, body: { status: IdeaStatus; answer: strin
   apiFetch<Idea>(`${BASE}/ideas/${id}/answer`, json('POST', body))
 export const pollIdea = (id: number, body: Record<string, unknown>) => apiFetch<Idea>(`${BASE}/ideas/${id}/poll`, json('POST', body))
 
-export const listHonours = () => apiFetch<Honour[]>(`${BASE}/honours`)
-export const saveHonour = (body: Record<string, unknown>, id?: number) =>
-  apiFetch<Honour>(id ? `${BASE}/honours/${id}` : `${BASE}/honours`, json(id ? 'PATCH' : 'POST', body))
-export const deleteHonour = (id: number) => apiFetch<void>(`${BASE}/honours/${id}`, del)
+export const listHonours = () => apiFetch<Honours>(`${BASE}/honours`)
+export const setHonourTier = (tierId: number | null) => apiFetch<Honours>(`${BASE}/honours/tier`, json('PUT', { tierId }))
+export const settleLegacyHonours = (action: 'move' | 'discard') =>
+  apiFetch<Honours>(`${BASE}/honours/legacy`, json('POST', { action }))
 export const listJubilees = (days = 60) => apiFetch<Jubilee[]>(`${BASE}/jubilees?days=${days}`)
 
 export const getWelcome = () => apiFetch<MyWelcome>(`${BASE}/welcome`)

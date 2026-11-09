@@ -21,10 +21,10 @@ POST   /ideas/<id>/vote               toggles the caller's vote
 POST   /ideas/<id>/answer             {status, answer?}
 POST   /ideas/<id>/poll               {question?, closesAt?}: a poll in Umfragen
 
-GET    /honours                       honorary members (every member sees them)
-POST   /honours                       {memberId, title, awardedOn?, note?}
-PATCH  /honours/<id>
-DELETE /honours/<id>
+GET    /honours                       members of the honorary tier (everyone);
+                                      the board also gets tiers and old honours
+PUT    /honours/tier                  {tierId|null}: which tier is honorary
+POST   /honours/legacy                {action: move|discard} honours from 1.0
 GET    /jubilees?days=60              coming membership jubilees and round birthdays
 
 GET    /welcome                       the caller's checklist
@@ -48,7 +48,7 @@ from hubra.core import files as store
 from hubra.core.auth.helpers import get_current_member
 from hubra.core.errors import api_error
 from hubra.core.extensions import db
-from hubra.core.models.member import Member
+from hubra.core.models.member import Member, MembershipTier
 from hubra.core.permissions import permission_required, require_member
 from hubra.core.utils import log_audit
 
@@ -73,6 +73,7 @@ GALLERIES = "community.galleries.update"
 IDEAS = "community.ideas.update"
 WELCOME = "community.welcome.update"
 HONOURS = "community.honours.update"
+TIER_SETTING = "honour_tier_id"
 MAX_PHOTOS = 20
 STATUSES = ("open", "planned", "done", "declined")
 AUTOS = ("fee", "photo")
@@ -718,87 +719,138 @@ def idea_poll(idea_id: int):
 
 
 # ── Honours and jubilees ─────────────────────────────────────────────────────
+#
+# Honorary members are a membership tier like any other: the board picks
+# which tier (module setting honour_tier_id) and gives members that tier in
+# Members, where its fee (usually none) applies too. Honours kept before
+# 1.1.0 in community_honours wait on the tab until the board moves them onto
+# the tier or drops them.
 
 
-def _honour(h: CommunityHonour, names: dict) -> dict:
-    return {
-        "id": h.id,
-        "memberId": h.member_id,
-        "name": names.get(h.member_id, "?"),
-        "title": h.title,
-        "awardedOn": _iso(h.awarded_on),
-        "note": h.note,
-    }
+def _honour_tier() -> MembershipTier | None:
+    from hubra.core.modules import get_config
+
+    tier_id = get_config("community").get(TIER_SETTING)
+    if not isinstance(tier_id, int):
+        return None
+    return db.session.get(MembershipTier, tier_id)
+
+
+def _active(query):
+    return query.where(Member.status == "active").where(Member.archived_at.is_(None))
+
+
+def _legacy(names: dict) -> list[dict]:
+    rows = db.session.scalars(
+        select(CommunityHonour).order_by(
+            CommunityHonour.awarded_on.desc().nulls_last(), CommunityHonour.id
+        )
+    )
+    return [
+        {
+            "id": h.id,
+            "memberId": h.member_id,
+            "name": names.get(h.member_id, "?"),
+            "title": h.title,
+            "awardedOn": _iso(h.awarded_on),
+            "note": h.note,
+        }
+        for h in rows
+    ]
 
 
 @community_bp.get("/honours")
 @require_member
 def list_honours():
     member = get_current_member()
-    rows = list(
-        db.session.scalars(
-            select(CommunityHonour).order_by(
-                CommunityHonour.awarded_on.desc().nulls_last(), CommunityHonour.id
-            )
+    tier = _honour_tier()
+    members = (
+        list(
+            db.session.scalars(_active(select(Member).where(Member.tier_id == tier.id)))
         )
+        if tier
+        else []
     )
-    names = _names(h.member_id for h in rows)
-    out = [_honour(h, names) for h in rows]
-    if not _can(member, HONOURS):
-        for h in out:
-            h.pop("note", None)
+    members.sort(key=lambda m: (m.name or "").lower())
+    out: dict = {
+        "tier": {"id": tier.id, "name": tier.name} if tier else None,
+        "members": [
+            {"memberId": m.id, "name": m.name, "since": _iso(m.joined)} for m in members
+        ],
+    }
+    if _can(member, HONOURS):
+        counts = dict(
+            db.session.execute(
+                _active(
+                    select(Member.tier_id, func.count(Member.id)).where(
+                        Member.tier_id.is_not(None)
+                    )
+                ).group_by(Member.tier_id)
+            ).all()
+        )
+        out["tiers"] = [
+            {"id": t.id, "name": t.name, "members": counts.get(t.id, 0)}
+            for t in db.session.scalars(
+                select(MembershipTier).order_by(MembershipTier.name)
+            )
+        ]
+        legacy_ids = db.session.scalars(select(CommunityHonour.member_id)).all()
+        out["legacy"] = _legacy(_names(legacy_ids))
     return jsonify(out)
 
 
-def _honour_fields(h: CommunityHonour, data: dict, creating: bool) -> None:
-    if creating or "memberId" in data:
-        mid = _int(data, "memberId", 1, 2**31 - 1)
-        if mid is None or db.session.get(Member, mid) is None:
-            raise Invalid("memberId: no such member")
-        h.member_id = mid
-    if creating or "title" in data:
-        h.title = _text(data, "title", 120, required=True)
-    if creating or "awardedOn" in data:
-        h.awarded_on = _date(data, "awardedOn")
-    if creating or "note" in data:
-        h.note = _text(data, "note", 500)
-
-
-@community_bp.post("/honours")
+@community_bp.put("/honours/tier")
 @permission_required("honours", "update", "Keep honorary members and see jubilees")
-def create_honour():
+def set_honour_tier():
+    from hubra.core.modules import get_config, set_config
+
     member = get_current_member()
-    h = CommunityHonour()
-    _honour_fields(h, _body(), creating=True)
-    db.session.add(h)
-    db.session.flush()
-    log_audit(member.id, "community.honour.create", "CommunityHonour", h.id, h.title)
+    tier_id = _int(_body(), "tierId", 1, 2**31 - 1)
+    tier = db.session.get(MembershipTier, tier_id) if tier_id else None
+    if tier_id and tier is None:
+        raise Invalid("tierId: no such tier")
+    config = get_config("community")
+    config[TIER_SETTING] = tier.id if tier else None
+    set_config("community", config)
+    log_audit(
+        member.id,
+        "community.honour.tier",
+        "MembershipTier",
+        tier.id if tier else None,
+        tier.name if tier else "-",
+    )
     db.session.commit()
-    return jsonify(_honour(h, _names([h.member_id]))), 201
+    return list_honours()
 
 
-@community_bp.patch("/honours/<int:honour_id>")
+@community_bp.post("/honours/legacy")
 @permission_required("honours", "update", "Keep honorary members and see jubilees")
-def update_honour(honour_id: int):
-    h, err = _get(CommunityHonour, honour_id)
-    if err:
-        return err
-    _honour_fields(h, _body(), creating=False)
-    db.session.commit()
-    return jsonify(_honour(h, _names([h.member_id])))
-
-
-@community_bp.delete("/honours/<int:honour_id>")
-@permission_required("honours", "update", "Keep honorary members and see jubilees")
-def delete_honour(honour_id: int):
+def move_legacy():
+    """Moves the honours kept before 1.1.0 onto the tier, or drops them."""
     member = get_current_member()
-    h, err = _get(CommunityHonour, honour_id)
-    if err:
-        return err
-    log_audit(member.id, "community.honour.delete", "CommunityHonour", h.id, h.title)
-    db.session.delete(h)
+    action = _body().get("action")
+    if action not in ("move", "discard"):
+        raise Invalid("action must be move or discard")
+    rows = list(db.session.scalars(select(CommunityHonour)))
+    if action == "move":
+        tier = _honour_tier()
+        if tier is None:
+            raise Invalid("pick the honorary members' tier first")
+        ids = {h.member_id for h in rows}
+        for m in db.session.scalars(select(Member).where(Member.id.in_(ids))):
+            if m.tier_id != tier.id:
+                log_audit(
+                    member.id,
+                    "community.honour.move",
+                    "Member",
+                    m.id,
+                    f"{m.name}: {tier.name}",
+                )
+                m.tier_id = tier.id
+    for h in rows:
+        db.session.delete(h)
     db.session.commit()
-    return "", 204
+    return list_honours()
 
 
 @community_bp.get("/jubilees")

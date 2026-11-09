@@ -2,7 +2,7 @@ id: community
 name: Community
 version: "1.2.0"
 hubra: ">=0.2,<1"
-description: "Member to member: photo albums that respect who doesn't want to be tagged, an idea box with votes, a welcome checklist for new members, and jubilees and honorary members for the board."
+description: "Member to member: photo albums that respect who doesn't want to be tagged, an idea box with votes, a welcome checklist for new members, and jubilees for the board. Honorary members are a membership tier the board picks."
 author: Hubra
 homepage: https://github.com/hubra-app/hubra-plugin-community
 tags: [community, photos, gallery, ideas, onboarding, honours]
@@ -13,4 +13,4 @@ migrations: migrations
 frontend: frontend/dist/plugin.js
 # The areas this plugin extends; Hubra refuses a plugin that touches one it
 # doesn't list. See docs/plugins.md in hubra-app/hubra.
-uses: [routes, tables, jobs, nav, contracts, frontend]
+uses: [routes, tables, jobs, settings, nav, contracts, frontend]
