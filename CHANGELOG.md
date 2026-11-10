@@ -1,5 +1,9 @@
 # Community
 
+## Unreleased
+
+- **Photo albums move to Documents.** With Documents on, the Gallery tab points to Dokumente › Fotos, and Documents takes the albums over (photos, captions, tags, opt-outs). It reads them through the new queries `community.albums.export` and `community.photos.optouts`. Without Documents, the gallery works as before. A later major version drops the gallery here.
+
 ## 1.3.0
 
 - Gives the standard roles access when a club first switches it on (`role_defaults`, docs/roles.md in hubra-app/hubra): Mitglied Ansehen, Vorstand Bearbeiten. Roles without access don't see it; their own data from it stays on their profile. Needs Hubra 0.2.5 or later.
