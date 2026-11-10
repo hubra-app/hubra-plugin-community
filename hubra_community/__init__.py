@@ -19,6 +19,7 @@ Permissions:
     community.honours.update     pick the honorary tier, see jubilees
 """
 
+from hubra.core.contracts import WidgetField, widget_contract
 from hubra.core.modules import Blueprint, Module, NavItem, Schedule, SettingField
 
 module = Module(
@@ -75,4 +76,29 @@ module = Module(
         "polls.poll.create": ">=1,<2",
         "inventory.items.lend": ">=1,<2",
     },
+    # Dashboard widgets (hubra_community/widgets.py).
+    provides=(
+        widget_contract(
+            "community.ideas",
+            "hubra_community.widgets:ideas",
+            label="community.widget.ideas",
+            description="community.widget.ideasHint",
+            size="m",
+            view="list",
+            fields=(WidgetField("count", "community.widget.count", "number", 5),),
+        ),
+        widget_contract(
+            "community.jubilees",
+            "hubra_community.widgets:jubilees",
+            label="community.widget.jubilees",
+            description="community.widget.jubileesHint",
+            size="m",
+            view="list",
+            perm="community.honours.update",
+            fields=(
+                WidgetField("days", "community.widget.days", "number", 30),
+                WidgetField("count", "community.widget.count", "number", 5),
+            ),
+        ),
+    ),
 )
