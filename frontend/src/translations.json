@@ -67,7 +67,10 @@
         "untagMe": "Remove my tag",
         "untagged": "Your tag was removed",
         "deletePhotoTitle": "Delete this photo?",
-        "deletePhotoBody": "The photo is deleted for good."
+        "deletePhotoBody": "The photo is deleted for good.",
+        "movedTitle": "Photos are in Documents now",
+        "moved": "Photo albums now live in Documents › Photos, with access per role and group like the folders. The albums from here are taken over there.",
+        "openPhotos": "Open the photos"
       },
       "ideas": {
         "filterActive": "Open",
@@ -245,7 +248,10 @@
         "untagMe": "Meine Markierung entfernen",
         "untagged": "Deine Markierung ist entfernt",
         "deletePhotoTitle": "Foto löschen?",
-        "deletePhotoBody": "Das Foto wird endgültig gelöscht."
+        "deletePhotoBody": "Das Foto wird endgültig gelöscht.",
+        "movedTitle": "Die Fotos sind jetzt unter Dokumente",
+        "moved": "Fotoalben gehören jetzt zu Dokumente › Fotos, mit Zugriff pro Rolle und Gruppe wie bei den Ordnern. Die Alben von hier werden dorthin übernommen.",
+        "openPhotos": "Zu den Fotos"
       },
       "ideas": {
         "filterActive": "Offen",

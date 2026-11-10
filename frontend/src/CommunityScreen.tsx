@@ -1,7 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { IconAward, IconBulb, IconChecklist, IconPhoto } from '@tabler/icons-react'
-import { ErrorBanner, LoadingSpinner, PageHead, Tabs, useT } from '@hubra/plugin-sdk'
+import { Button, Paper, Text } from '@mantine/core'
+import { ErrorBanner, LoadingSpinner, PageHead, Tabs, useModules, useT } from '@hubra/plugin-sdk'
 import { QK, errorText, getOptions } from './api'
 import { GalleryTab } from './GalleryTab'
 import { HonoursTab } from './HonoursTab'
@@ -14,6 +15,8 @@ export function CommunityScreen() {
   const navigate = useNavigate()
   const location = useLocation()
   const options = useQuery({ queryKey: QK.options, queryFn: getOptions })
+  // Photo albums moved to Documents (Fotos); the gallery points there.
+  const moved = useModules().has('documents')
   const part = location.pathname.split('/app/community')[1]?.replace(/^\//, '').split('/')[0] ?? ''
   const tabs = [
     { id: 'gallery', label: t('community.tabs.gallery'), icon: <IconPhoto size={16} /> },
@@ -30,7 +33,20 @@ export function CommunityScreen() {
     <>
       <PageHead title={t('community.title')} desc={t('community.desc')} />
       <Tabs tabs={tabs} activeTab={active} onTabChange={(id) => navigate(id === 'gallery' ? '/app/community' : `/app/community/${id}`)} />
-      {active === 'gallery' && <GalleryTab options={options.data} />}
+      {active === 'gallery' &&
+        (moved ? (
+          <Paper withBorder p="lg" radius="md">
+            <Text fw={600} mb={4}>
+              {t('community.gallery.movedTitle')}
+            </Text>
+            <Text size="sm" c="dimmed" mb="md">
+              {t('community.gallery.moved')}
+            </Text>
+            <Button onClick={() => navigate('/app/documents?view=photos')}>{t('community.gallery.openPhotos')}</Button>
+          </Paper>
+        ) : (
+          <GalleryTab options={options.data} />
+        ))}
       {active === 'ideas' && <IdeasTab options={options.data} />}
       {active === 'honours' && <HonoursTab options={options.data} />}
       {active === 'welcome' && <WelcomeTab options={options.data} />}

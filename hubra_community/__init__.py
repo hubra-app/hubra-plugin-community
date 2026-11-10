@@ -19,7 +19,7 @@ Permissions:
     community.honours.update     pick the honorary tier, see jubilees
 """
 
-from hubra.core.contracts import WidgetField, widget_contract
+from hubra.core.contracts import WidgetField, query_contract, widget_contract
 from hubra.core.modules import Blueprint, Module, NavItem, Schedule, SettingField
 
 module = Module(
@@ -76,8 +76,25 @@ module = Module(
         "polls.poll.create": ">=1,<2",
         "inventory.items.lend": ">=1,<2",
     },
-    # Dashboard widgets (hubra_community/widgets.py).
+    # Dashboard widgets (hubra_community/widgets.py), and the albums for
+    # Documents to take over (hubra_community/contracts.py).
     provides=(
+        query_contract(
+            "community.albums.export",
+            "hubra_community.contracts:export_albums",
+            input="hubra_community.contracts:AlbumsIn",
+            output="hubra_community.contracts:ExportedAlbum",
+            perm="community.galleries.update",
+            description="Photo albums with their photos and tags, for Documents to take over",
+        ),
+        query_contract(
+            "community.photos.optouts",
+            "hubra_community.contracts:export_optouts",
+            input="hubra_community.contracts:OptoutsIn",
+            output="hubra_community.contracts:Optout",
+            perm="community.galleries.update",
+            description="Members who don't want to be tagged in photos",
+        ),
         widget_contract(
             "community.ideas",
             "hubra_community.widgets:ideas",
