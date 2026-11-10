@@ -166,6 +166,14 @@
         "allDone": "All done",
         "cardTitle": "Welcome to the club",
         "open": "Show all"
+      },
+      "widget": {
+        "ideas": "Top ideas",
+        "ideasHint": "Open and planned ideas with the most votes",
+        "count": "How many",
+        "jubilees": "Jubilees and birthdays",
+        "jubileesHint": "Membership jubilees and round birthdays in the coming days",
+        "days": "Days ahead"
       }
     }
   },
@@ -336,6 +344,14 @@
         "allDone": "Alles erledigt",
         "cardTitle": "Willkommen im Verein",
         "open": "Alle zeigen"
+      },
+      "widget": {
+        "ideas": "Beliebteste Ideen",
+        "ideasHint": "Offene und geplante Ideen mit den meisten Stimmen",
+        "count": "Wie viele",
+        "jubilees": "Jubiläen und Geburtstage",
+        "jubileesHint": "Mitglieder-Jubiläen und runde Geburtstage in den nächsten Tagen",
+        "days": "Tage voraus"
       }
     }
   }

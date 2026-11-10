@@ -410,3 +410,39 @@ def test_lending_into_the_real_inventory(app, db, club):
         ("Beamer", club["lea"], "private"),
     ]
     assert [r.kind for r in db.session.query(CommunitySkill)] == ["skill"]
+
+
+# ── Dashboard widgets ───────────────────────────────────────────────────────
+
+
+def test_widgets(db, club):
+    from hubra.core import contracts
+    from hubra.core.models.member import Member
+    from hubra_community.models import CommunityIdea, CommunityIdeaVote
+
+    top = CommunityIdea(title="Grillplatz", status="planned")
+    small = CommunityIdea(title="Neue Trikots", status="open")
+    db.session.add_all([top, small, CommunityIdea(title="Erledigt", status="done")])
+    db.session.flush()
+    db.session.add_all([
+        CommunityIdeaVote(idea_id=top.id, member_id=club["max"]),
+        CommunityIdeaVote(idea_id=top.id, member_id=club["lea"]),
+        CommunityIdeaVote(idea_id=small.id, member_id=club["max"]),
+    ])
+    lea = db.session.get(Member, club["lea"])
+    soon = date.today() + timedelta(days=5)
+    lea.birthday = soon.replace(year=soon.year - 50)
+    db.session.commit()
+
+    max_ = db.session.get(Member, club["max"])
+    out = contracts.widget_data("community.ideas", {}, actor=max_)
+    assert [i["label"] for i in out["items"]] == ["Grillplatz", "Neue Trikots"]
+    assert out["items"][0]["sub"] in ("2 Stimmen · geplant", "2 votes · planned")
+    assert out["total"] == 2
+
+    hana = db.session.get(Member, club["hana"])
+    out = contracts.widget_data("community.jubilees", {}, actor=hana)
+    assert [i["label"] for i in out["items"]] == [lea.name]
+    assert "50" in out["items"][0]["sub"]
+    offered = [o.contract.name for o in contracts.widgets(actor=max_)]
+    assert "community.ideas" in offered and "community.jubilees" not in offered
