@@ -74,6 +74,9 @@ IDEAS = "community.ideas.update"
 WELCOME = "community.welcome.update"
 HONOURS = "community.honours.update"
 TIER_SETTING = "honour_tier_id"
+# Picking the honorary tier shows its members to everyone, and moving
+# members onto it changes their tier (and fee): both are Members' business.
+MEMBERS_EDIT = "members.members.update"
 MAX_PHOTOS = 20
 STATUSES = ("open", "planned", "done", "declined")
 AUTOS = ("fee", "photo")
@@ -611,9 +614,19 @@ def delete_idea(idea_id: int):
     i, err = _get(CommunityIdea, idea_id)
     if err:
         return err
-    if not (_can(member, IDEAS) or (i.author_id == member.id and i.answer is None)):
+    manage = _can(member, IDEAS)
+    if not (manage or (i.author_id == member.id and i.answer is None)):
         return api_error("FORBIDDEN", "not yours, or already answered", 403)
-    log_audit(member.id, "community.idea.delete", "CommunityIdea", i.id, i.title)
+    # An anonymous author taking back their own idea stays anonymous in the
+    # audit log too; a board member deleting it is named as usual.
+    hidden = i.anonymous and i.author_id == member.id and not manage
+    log_audit(
+        None if hidden else member.id,
+        "community.idea.delete",
+        "CommunityIdea",
+        i.id,
+        i.title,
+    )
     db.session.delete(i)
     db.session.commit()
     return "", 204
@@ -801,6 +814,7 @@ def list_honours():
                 select(MembershipTier).order_by(MembershipTier.name)
             )
         ]
+        out["canSetTier"] = _can(member, MEMBERS_EDIT)
         legacy_ids = db.session.scalars(select(CommunityHonour.member_id)).all()
         out["legacy"] = _legacy(_names(legacy_ids))
     return jsonify(out)
@@ -812,6 +826,10 @@ def set_honour_tier():
     from hubra.core.modules import get_config, set_config
 
     member = get_current_member()
+    if not _can(member, MEMBERS_EDIT):
+        return api_error(
+            "FORBIDDEN", "picking the tier needs the right to edit members", 403
+        )
     tier_id = _int(_body(), "tierId", 1, 2**31 - 1)
     tier = db.session.get(MembershipTier, tier_id) if tier_id else None
     if tier_id and tier is None:
@@ -840,6 +858,10 @@ def move_legacy():
         raise Invalid("action must be move or discard")
     rows = list(db.session.scalars(select(CommunityHonour)))
     if action == "move":
+        if not _can(member, MEMBERS_EDIT):
+            return api_error(
+                "FORBIDDEN", "changing members' tier needs the right to edit members", 403
+            )
         tier = _honour_tier()
         if tier is None:
             raise Invalid("pick the honorary members' tier first")
@@ -866,7 +888,12 @@ def jubilees():
     days = request.args.get("days", type=int) or 60
     days = max(1, min(days, 366))
     today = date.today()
-    return jsonify(services.jubilees(today, today + timedelta(days=days)))
+    found = services.jubilees(
+        today,
+        today + timedelta(days=days),
+        all_birthdays=services.sees_all_birthdays(get_current_member()),
+    )
+    return jsonify(found)
 
 
 # ── Welcome ──────────────────────────────────────────────────────────────────

@@ -132,7 +132,7 @@ function TierPicker({ data }: { data: Honours }) {
     <Paper withBorder radius="md" p="md" mb="sm">
       <Select
         label={t('community.honours.tier')}
-        description={t('community.honours.tierHint')}
+        description={t(data.canSetTier ? 'community.honours.tierHint' : 'community.honours.tierNeedsMembers')}
         placeholder={t('community.honours.pickTier')}
         data={(data.tiers ?? []).map((tier) => ({
           value: String(tier.id),
@@ -140,7 +140,7 @@ function TierPicker({ data }: { data: Honours }) {
         }))}
         value={data.tier ? String(data.tier.id) : null}
         onChange={choose}
-        disabled={busy}
+        disabled={busy || !data.canSetTier}
         clearable
         searchable
         maw={420}
@@ -167,7 +167,7 @@ function LegacyHonours({ data }: { data: Honours }) {
       <Alert color="yellow" variant="light" title={t('community.honours.legacyTitle')} mb="sm">
         <Text size="sm">{t(data.tier ? 'community.honours.legacyHint' : 'community.honours.legacyNoTier', { tier: data.tier?.name })}</Text>
         <Group gap="xs" mt="sm">
-          <Button size="xs" onClick={() => settle('move')} loading={busy} disabled={!data.tier}>
+          <Button size="xs" onClick={() => settle('move')} loading={busy} disabled={!data.tier || !data.canSetTier}>
             {t('community.honours.legacyMove', { count: legacy.length })}
           </Button>
           <Button size="xs" variant="subtle" color="red" onClick={() => settle('discard')} loading={busy}>

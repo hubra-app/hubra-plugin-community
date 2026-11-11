@@ -40,6 +40,7 @@ def club(client, app, db, seeded_db, tmp_path):
         "ida": ["community.ideas.update"],
         "pia": ["community.ideas.update", "polls.polls.create"],
         "hana": ["community.honours.update"],
+        "mia": ["community.honours.update", "members.members.update"],
         "wim": ["community.welcome.update"],
         "max": [],
         "lea": [],
@@ -176,6 +177,21 @@ def test_the_idea_box(client, db, club):
     _login(client, "lea@test.ch")
     assert client.delete(f"{BASE}/ideas/{other['id']}").status_code == 403
 
+    # Taking back an own anonymous idea leaves no name in the audit log.
+    from hubra.core.models.audit import AuditEntry
+
+    secret = client.post(
+        f"{BASE}/ideas", json={"title": "Geheimer Vorschlag", "anonymous": True}
+    ).get_json()
+    assert client.delete(f"{BASE}/ideas/{secret['id']}").status_code == 204
+    entry = (
+        db.session.query(AuditEntry)
+        .filter(AuditEntry.action == "community.idea.delete")
+        .filter(AuditEntry.target_id == secret["id"])
+        .one()
+    )
+    assert entry.actor_id is None and entry.actor_name is None
+
 
 def test_honours_and_jubilees(app, client, db, club):
     from hubra.core.models.member import Member
@@ -191,12 +207,27 @@ def test_honours_and_jubilees(app, client, db, club):
     lea.joined = soon.replace(year=soon.year - 3)
     db.session.commit()
 
+    # Lea doesn't share her birthday: only those who edit members see it.
     _login(client, "hana@test.ch")
+    got = client.get(f"{BASE}/jubilees?days=30").get_json()
+    assert {(j["name"], j["kind"], j["years"]) for j in got} == {
+        ("Test Max", "member", 25),
+    }
+    _login(client, "mia@test.ch")
     got = client.get(f"{BASE}/jubilees?days=30").get_json()
     assert {(j["name"], j["kind"], j["years"]) for j in got} == {
         ("Test Max", "member", 25),
         ("Test Lea", "birthday", 50),
     }
+    lea.directory_shared = ["birthday"]
+    db.session.commit()
+    _login(client, "hana@test.ch")
+    got = client.get(f"{BASE}/jubilees?days=30").get_json()
+    assert ("Test Lea", "birthday", 50) in {
+        (j["name"], j["kind"], j["years"]) for j in got
+    }
+    lea.directory_shared = None
+    db.session.commit()
 
     _login(client, "max@test.ch")
     assert client.get(f"{BASE}/jubilees").status_code == 403
@@ -208,8 +239,11 @@ def test_honours_and_jubilees(app, client, db, club):
     bells = db.session.query(Notification).filter(
         Notification.link == "/app/community/honours"
     )
-    assert {n.member_id for n in bells} >= {club["hana"]}
+    assert {n.member_id for n in bells} >= {club["hana"], club["mia"]}
     assert club["max"] not in {n.member_id for n in bells}
+    # Lea's unshared birthday reached Mia, not Hana.
+    birthday = {n.member_id for n in bells if "Lea" in n.msg}
+    assert club["mia"] in birthday and club["hana"] not in birthday
 
 
 def test_honorary_members_are_a_tier(client, db, club):
@@ -256,8 +290,18 @@ def _honorary_members(client, db, club, Member, MembershipTier, CommunityHonour)
         == 403
     )
 
+    # Honours alone may not pick the tier or move members: that's Members'.
     _login(client, "hana@test.ch")
     got = client.get(f"{BASE}/honours").get_json()
+    assert got["canSetTier"] is False
+    assert (
+        client.put(f"{BASE}/honours/tier", json={"tierId": honorary.id}).status_code
+        == 403
+    )
+
+    _login(client, "mia@test.ch")
+    got = client.get(f"{BASE}/honours").get_json()
+    assert got["canSetTier"] is True
     assert [h["name"] for h in got["legacy"]] == ["Test Lea"]
     assert {t["name"]: t["members"] for t in got["tiers"]}["Ehrenmitglied"] == 1
     # Moving needs the tier first.
@@ -282,6 +326,11 @@ def _honorary_members(client, db, club, Member, MembershipTier, CommunityHonour)
     assert "tiers" not in got
 
     _login(client, "hana@test.ch")
+    assert (
+        client.post(f"{BASE}/honours/legacy", json={"action": "move"}).status_code
+        == 403
+    )
+    _login(client, "mia@test.ch")
     got = client.put(f"{BASE}/honours/tier", json={"tierId": None}).get_json()
     assert got["tier"] is None and got["members"] == []
 
@@ -455,6 +504,9 @@ def test_widgets(db, club):
 
     hana = db.session.get(Member, club["hana"])
     out = contracts.widget_data("community.jubilees", {}, actor=hana)
+    assert out["items"] == []  # Lea doesn't share her birthday
+    mia = db.session.get(Member, club["mia"])
+    out = contracts.widget_data("community.jubilees", {}, actor=mia)
     assert [i["label"] for i in out["items"]] == [lea.name]
     assert "50" in out["items"][0]["sub"]
     offered = [o.contract.name for o in contracts.widgets(actor=max_)]
