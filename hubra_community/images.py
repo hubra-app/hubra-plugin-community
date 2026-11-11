@@ -9,6 +9,11 @@ import io
 FULL = 2560
 THUMB = 640
 TYPES = ("image/jpeg", "image/png", "image/webp", "image/gif")
+# Largest picture decoded: 60 megapixels. A small PNG can claim huge
+# dimensions and take gigabytes of memory once decoded, so the size is
+# checked before decoding (Pillow alone only refuses above ~179 MP). Not set
+# on Pillow itself: that limit is global and would change it for all of Hubra.
+MAX_PIXELS = 60_000_000
 
 
 class BadImage(Exception):
@@ -21,10 +26,14 @@ def process(data: bytes) -> tuple[bytes, str, bytes, int, int]:
         from PIL import Image, ImageOps
     except ImportError as exc:  # Pillow comes with WeasyPrint in Hubra
         raise BadImage("images can't be read on this server") from exc
-    Image.MAX_IMAGE_PIXELS = 60_000_000
     try:
         img = Image.open(io.BytesIO(data))
+        width, height = img.size
+        if width * height > MAX_PIXELS:
+            raise BadImage("this photo has too many pixels")
         img.load()
+    except BadImage:
+        raise
     except Exception as exc:  # noqa: BLE001 - anything Pillow can't read
         raise BadImage("this is not a photo Hubra can read") from exc
     if img.format not in ("JPEG", "PNG", "WEBP", "GIF", "MPO"):

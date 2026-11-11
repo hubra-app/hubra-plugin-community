@@ -47,7 +47,7 @@ from sqlalchemy import func, select
 from hubra.core import files as store
 from hubra.core.auth.helpers import get_current_member
 from hubra.core.errors import api_error
-from hubra.core.extensions import db
+from hubra.core.extensions import db, limiter
 from hubra.core.models.member import Member, MembershipTier
 from hubra.core.permissions import permission_required, require_member
 from hubra.core.utils import log_audit
@@ -344,6 +344,7 @@ def delete_album(album_id: int):
 
 @community_bp.post("/albums/<int:album_id>/photos")
 @require_member
+@limiter.limit("10 per minute")
 def upload(album_id: int):
     member = get_current_member()
     a, err = _get(CommunityAlbum, album_id)
@@ -584,6 +585,7 @@ def list_ideas():
 
 @community_bp.post("/ideas")
 @require_member
+@limiter.limit("10 per minute")
 def create_idea():
     member = get_current_member()
     data = _body()
@@ -683,7 +685,7 @@ def idea_poll(idea_id: int):
         return api_error("POLL_EXISTS", "this idea already has a poll", 409)
     if not is_enabled("polls"):
         return api_error("POLLS_OFF", "the polls module is switched off", 409)
-    from hubra.core.contracts import SYSTEM, call
+    from hubra.core.contracts import ActionForbidden, ActionUnavailable, call
 
     data = _body()
     question = _text(data, "question", 255) or i.title[:255]
@@ -701,16 +703,21 @@ def idea_poll(idea_id: int):
         if (getattr(member, "language", None) or "de").startswith("de")
         else ("For", "Against", "Abstain")
     )
-    # The route checked the member's right to turn an idea into a poll.
-    poll = call(
-        "polls.poll.create",
-        question=question,
-        closes_at=closes_at,
-        auto_close=closes_at is not None,
-        options=[{"label": label} for label in labels],
-        actor_id=member.id,
-        actor=SYSTEM,
-    )
+    # As the member: the route checked their right to answer ideas, the
+    # contract checks their right to create polls (polls.polls.create).
+    try:
+        poll = call(
+            "polls.poll.create",
+            question=question,
+            closes_at=closes_at,
+            auto_close=closes_at is not None,
+            options=[{"label": label} for label in labels],
+            actor_id=member.id,
+        )
+    except ActionForbidden:
+        return api_error("FORBIDDEN", "you may not create polls", 403)
+    except ActionUnavailable:
+        return api_error("POLLS_OFF", "the polls module is switched off", 409)
     i.poll_id = poll["id"]
     if i.status == "open":
         i.status = "planned"
@@ -936,8 +943,13 @@ def _step_fields(s: CommunityWelcomeStep, data: dict, creating: bool) -> None:
         s.description = _text(data, "description", 1000)
     if creating or "link" in data:
         link = _text(data, "link", 500)
-        if link and not (link.startswith("/") or link.startswith("https://")):
-            raise Invalid("link must start with / or https://")
+        # "//host" and "/\\host" are links to another site, not paths here.
+        if link and (
+            not (link.startswith("/") or link.startswith("https://"))
+            or link.startswith(("//", "/\\"))
+            or any(c.isspace() or ord(c) < 32 for c in link)
+        ):
+            raise Invalid("link must be a path (/app/...) or start with https://")
         s.link = link
     if creating or "auto" in data:
         auto = data.get("auto") or None

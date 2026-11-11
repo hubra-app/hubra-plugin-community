@@ -38,6 +38,7 @@ def club(client, app, db, seeded_db, tmp_path):
     people = {
         "gabi": ["community.galleries.update"],
         "ida": ["community.ideas.update"],
+        "pia": ["community.ideas.update", "polls.polls.create"],
         "hana": ["community.honours.update"],
         "wim": ["community.welcome.update"],
         "max": [],
@@ -86,6 +87,13 @@ def test_gallery_upload_tags_and_consent(client, club):
     assert len(body["added"]) == 1 and len(body["failed"]) == 1
     photo = body["added"][0]
     assert photo["width"] == 2560 and photo["height"] == 1280
+
+    # A small file that claims a huge picture is refused before decoding.
+    from hubra_community import images
+
+    with patch.object(images, "MAX_PIXELS", 100):
+        bomb = _upload(client, album["id"], _png(20, 20))
+    assert bomb.status_code == 400 and len(bomb.get_json()["failed"]) == 1
 
     thumb = client.get(f"{BASE}/photos/{photo['id']}/file?size=thumb")
     assert thumb.status_code == 200 and thumb.mimetype == "image/jpeg"
@@ -155,6 +163,10 @@ def test_the_idea_box(client, db, club):
     assert [n.msg for n in told] == ["Neue Trikots"]
 
     set_modules(True, "polls")
+    # Answering ideas isn't the right to make polls: that is Umfragen's own.
+    refused = client.post(f"{BASE}/ideas/{idea['id']}/poll", json={})
+    assert refused.status_code == 403
+    _login(client, "pia@test.ch")
     polled = client.post(f"{BASE}/ideas/{idea['id']}/poll", json={}).get_json()
     assert polled["pollId"] and polled["status"] == "planned"
     assert client.post(f"{BASE}/ideas/{idea['id']}/poll", json={}).status_code == 409
@@ -293,12 +305,13 @@ def test_welcome_checklist(client, db, club):
     client.post(
         f"{BASE}/welcome/steps", json={"title": "Foto hochladen", "auto": "photo"}
     )
-    assert (
-        client.post(
-            f"{BASE}/welcome/steps", json={"title": "x", "link": "http://a"}
-        ).status_code
-        == 400
-    )
+    for bad in ("http://a", "//evil.example", "/\\evil.example", "javascript:x"):
+        assert (
+            client.post(
+                f"{BASE}/welcome/steps", json={"title": "x", "link": bad}
+            ).status_code
+            == 400
+        ), bad
 
     _login(client, "max@test.ch")
     mine = client.get(f"{BASE}/welcome").get_json()
