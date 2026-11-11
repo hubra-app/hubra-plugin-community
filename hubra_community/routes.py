@@ -47,7 +47,7 @@ from sqlalchemy import func, select
 from hubra.core import files as store
 from hubra.core.auth.helpers import get_current_member
 from hubra.core.errors import api_error
-from hubra.core.extensions import db
+from hubra.core.extensions import db, limiter
 from hubra.core.models.member import Member, MembershipTier
 from hubra.core.permissions import permission_required, require_member
 from hubra.core.utils import log_audit
@@ -74,6 +74,9 @@ IDEAS = "community.ideas.update"
 WELCOME = "community.welcome.update"
 HONOURS = "community.honours.update"
 TIER_SETTING = "honour_tier_id"
+# Picking the honorary tier shows its members to everyone, and moving
+# members onto it changes their tier (and fee): both are Members' business.
+MEMBERS_EDIT = "members.members.update"
 MAX_PHOTOS = 20
 STATUSES = ("open", "planned", "done", "declined")
 AUTOS = ("fee", "photo")
@@ -344,6 +347,7 @@ def delete_album(album_id: int):
 
 @community_bp.post("/albums/<int:album_id>/photos")
 @require_member
+@limiter.limit("10 per minute")
 def upload(album_id: int):
     member = get_current_member()
     a, err = _get(CommunityAlbum, album_id)
@@ -584,6 +588,7 @@ def list_ideas():
 
 @community_bp.post("/ideas")
 @require_member
+@limiter.limit("10 per minute")
 def create_idea():
     member = get_current_member()
     data = _body()
@@ -609,9 +614,19 @@ def delete_idea(idea_id: int):
     i, err = _get(CommunityIdea, idea_id)
     if err:
         return err
-    if not (_can(member, IDEAS) or (i.author_id == member.id and i.answer is None)):
+    manage = _can(member, IDEAS)
+    if not (manage or (i.author_id == member.id and i.answer is None)):
         return api_error("FORBIDDEN", "not yours, or already answered", 403)
-    log_audit(member.id, "community.idea.delete", "CommunityIdea", i.id, i.title)
+    # An anonymous author taking back their own idea stays anonymous in the
+    # audit log too; a board member deleting it is named as usual.
+    hidden = i.anonymous and i.author_id == member.id and not manage
+    log_audit(
+        None if hidden else member.id,
+        "community.idea.delete",
+        "CommunityIdea",
+        i.id,
+        i.title,
+    )
     db.session.delete(i)
     db.session.commit()
     return "", 204
@@ -683,7 +698,7 @@ def idea_poll(idea_id: int):
         return api_error("POLL_EXISTS", "this idea already has a poll", 409)
     if not is_enabled("polls"):
         return api_error("POLLS_OFF", "the polls module is switched off", 409)
-    from hubra.core.contracts import SYSTEM, call
+    from hubra.core.contracts import ActionForbidden, ActionUnavailable, call
 
     data = _body()
     question = _text(data, "question", 255) or i.title[:255]
@@ -701,16 +716,21 @@ def idea_poll(idea_id: int):
         if (getattr(member, "language", None) or "de").startswith("de")
         else ("For", "Against", "Abstain")
     )
-    # The route checked the member's right to turn an idea into a poll.
-    poll = call(
-        "polls.poll.create",
-        question=question,
-        closes_at=closes_at,
-        auto_close=closes_at is not None,
-        options=[{"label": label} for label in labels],
-        actor_id=member.id,
-        actor=SYSTEM,
-    )
+    # As the member: the route checked their right to answer ideas, the
+    # contract checks their right to create polls (polls.polls.create).
+    try:
+        poll = call(
+            "polls.poll.create",
+            question=question,
+            closes_at=closes_at,
+            auto_close=closes_at is not None,
+            options=[{"label": label} for label in labels],
+            actor_id=member.id,
+        )
+    except ActionForbidden:
+        return api_error("FORBIDDEN", "you may not create polls", 403)
+    except ActionUnavailable:
+        return api_error("POLLS_OFF", "the polls module is switched off", 409)
     i.poll_id = poll["id"]
     if i.status == "open":
         i.status = "planned"
@@ -794,6 +814,7 @@ def list_honours():
                 select(MembershipTier).order_by(MembershipTier.name)
             )
         ]
+        out["canSetTier"] = _can(member, MEMBERS_EDIT)
         legacy_ids = db.session.scalars(select(CommunityHonour.member_id)).all()
         out["legacy"] = _legacy(_names(legacy_ids))
     return jsonify(out)
@@ -805,6 +826,10 @@ def set_honour_tier():
     from hubra.core.modules import get_config, set_config
 
     member = get_current_member()
+    if not _can(member, MEMBERS_EDIT):
+        return api_error(
+            "FORBIDDEN", "picking the tier needs the right to edit members", 403
+        )
     tier_id = _int(_body(), "tierId", 1, 2**31 - 1)
     tier = db.session.get(MembershipTier, tier_id) if tier_id else None
     if tier_id and tier is None:
@@ -833,6 +858,10 @@ def move_legacy():
         raise Invalid("action must be move or discard")
     rows = list(db.session.scalars(select(CommunityHonour)))
     if action == "move":
+        if not _can(member, MEMBERS_EDIT):
+            return api_error(
+                "FORBIDDEN", "changing members' tier needs the right to edit members", 403
+            )
         tier = _honour_tier()
         if tier is None:
             raise Invalid("pick the honorary members' tier first")
@@ -859,7 +888,12 @@ def jubilees():
     days = request.args.get("days", type=int) or 60
     days = max(1, min(days, 366))
     today = date.today()
-    return jsonify(services.jubilees(today, today + timedelta(days=days)))
+    found = services.jubilees(
+        today,
+        today + timedelta(days=days),
+        all_birthdays=services.sees_all_birthdays(get_current_member()),
+    )
+    return jsonify(found)
 
 
 # ── Welcome ──────────────────────────────────────────────────────────────────
@@ -936,8 +970,13 @@ def _step_fields(s: CommunityWelcomeStep, data: dict, creating: bool) -> None:
         s.description = _text(data, "description", 1000)
     if creating or "link" in data:
         link = _text(data, "link", 500)
-        if link and not (link.startswith("/") or link.startswith("https://")):
-            raise Invalid("link must start with / or https://")
+        # "//host" and "/\\host" are links to another site, not paths here.
+        if link and (
+            not (link.startswith("/") or link.startswith("https://"))
+            or link.startswith(("//", "/\\"))
+            or any(c.isspace() or ord(c) < 32 for c in link)
+        ):
+            raise Invalid("link must be a path (/app/...) or start with https://")
         s.link = link
     if creating or "auto" in data:
         auto = data.get("auto") or None

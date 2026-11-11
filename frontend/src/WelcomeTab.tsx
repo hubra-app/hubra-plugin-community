@@ -66,7 +66,7 @@ export function Checklist({ welcome, compact }: { welcome: MyWelcome; compact?: 
             <Button
               size="compact-xs"
               variant="light"
-              onClick={() => (s.link!.startsWith('/') ? navigate(s.link!) : window.open(s.link!, '_blank', 'noopener'))}
+              onClick={() => (/^\/(?![/\\])/.test(s.link!) ? navigate(s.link!) : window.open(s.link!, '_blank', 'noopener,noreferrer'))}
             >
               {t('community.welcome.go')}
             </Button>

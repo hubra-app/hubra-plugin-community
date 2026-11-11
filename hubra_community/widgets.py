@@ -59,7 +59,11 @@ def ideas(ctx, config: dict) -> dict:
 def jubilees(ctx, config: dict) -> dict:
     """Jubilees and round birthdays in the next ``days`` days."""
     today = date.today()
-    found = services.jubilees(today, today + timedelta(days=_int(config, "days", 30, 366)))
+    found = services.jubilees(
+        today,
+        today + timedelta(days=_int(config, "days", 30, 366)),
+        all_birthdays=services.sees_all_birthdays(ctx.actor),
+    )
     german = _german(ctx.actor)
     items = []
     for j in found[: _int(config, "count", 5, 20)]:

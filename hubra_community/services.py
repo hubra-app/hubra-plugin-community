@@ -20,6 +20,21 @@ NOTICE_AHEAD = timedelta(days=14)
 # How long someone counts as new for the welcome checklist.
 NEW_FOR_DAYS = 180
 HONOURS = "community.honours.update"
+# Who sees every member's data, like in Members (docs/roles.md in hubra).
+MEMBERS_EDIT = "members.members.update"
+
+
+def sees_all_birthdays(viewer) -> bool:
+    """Birthdays are private: only those who edit members see everyone's;
+    others see a birthday only when its member shares it in the club's
+    directory (``directory_shared``), as in the member list."""
+    from hubra.core.permissions import member_has_permission
+
+    return viewer is not None and member_has_permission(viewer, MEMBERS_EDIT)
+
+
+def _shares_birthday(member) -> bool:
+    return "birthday" in (getattr(member, "directory_shared", None) or ())
 
 
 def _on(day: date, year: int) -> date:
@@ -29,8 +44,10 @@ def _on(day: date, year: int) -> date:
         return date(year, 3, 1)
 
 
-def jubilees(start: date, end: date) -> list[dict]:
-    """Membership jubilees and round birthdays from *start* to *end*."""
+def jubilees(start: date, end: date, all_birthdays: bool = False) -> list[dict]:
+    """Membership jubilees and round birthdays from *start* to *end*.
+    Birthdays only of members who share theirs, unless *all_birthdays*
+    (the viewer edits members: :func:`sees_all_birthdays`)."""
     out = []
     members = db.session.scalars(
         select(Member)
@@ -44,6 +61,8 @@ def jubilees(start: date, end: date) -> list[dict]:
         ):
             if not base:
                 continue
+            if kind == "birthday" and not (all_birthdays or _shares_birthday(m)):
+                continue
             for year in range(start.year, end.year + 1):
                 when = _on(base, year)
                 n = year - base.year
@@ -55,17 +74,18 @@ def jubilees(start: date, end: date) -> list[dict]:
                             "kind": kind,
                             "years": n,
                             "date": when.isoformat(),
+                            "shared": _shares_birthday(m),
                         }
                     )
     out.sort(key=lambda j: (j["date"], j["name"].lower()))
     return out
 
 
-def _board() -> list[int]:
+def _board() -> list:
     from hubra.core.permissions import member_has_permission
 
     return [
-        m.id
+        m
         for m in db.session.scalars(
             select(Member)
             .where(Member.status == "active")
@@ -77,7 +97,7 @@ def _board() -> list[int]:
 
 def notify_jubilees(today: date) -> int:
     """Tells the board about jubilees two weeks ahead, each once."""
-    due = jubilees(today, today + NOTICE_AHEAD)
+    due = jubilees(today, today + NOTICE_AHEAD, all_birthdays=True)
     fresh = []
     for j in due:
         on = date.fromisoformat(j["date"])
@@ -97,8 +117,14 @@ def notify_jubilees(today: date) -> int:
     if not fresh:
         return 0
     board = _board()
+    # A birthday not shared in the directory only goes to those who edit members.
+    everything = [m.id for m in board if sees_all_birthdays(m)]
+    everyone = [m.id for m in board]
     sent = 0
     for j in fresh:
+        to = everyone
+        if j["kind"] == "birthday" and not j["shared"]:
+            to = everything
         day = date.fromisoformat(j["date"]).strftime("%d.%m.")
         if j["kind"] == "member":
             texts = lambda de, j=j, day=day: (  # noqa: E731
@@ -112,7 +138,7 @@ def notify_jubilees(today: date) -> int:
                 if de
                 else ("Round birthday", f"{j['name']} turns {j['years']} on {day}")
             )
-        sent += notify(board, texts, "/app/community/honours")
+        sent += notify(to, texts, "/app/community/honours")
     return sent
 
 

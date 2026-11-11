@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Security:** turning an idea into a poll now needs the right to create polls (`polls.polls.create`) as well; before, answering ideas was enough because the poll was made as the system.
+- **Security:** photos that claim more than 60 megapixels are refused before they are decoded, so a small file can't take gigabytes of memory. Pillow's global limit is no longer changed for all of Hubra.
+- **Security:** welcome step links like `//other.site` or `/\other.site` are refused (they lead off the club's app); the checklist opens them as outside links in any case.
+- Uploading photos and posting ideas are limited to 10 a minute per person.
+- **Privacy:** jubilees (tab, widget and the board's reminders) show a round birthday only to those who may edit members (`members.members.update`), unless the member shares their birthday in the club's directory. Membership jubilees stay as they were.
+- **Privacy:** when a member takes back their own anonymous idea, the audit log no longer names them.
+- Picking the honorary members' tier and moving members onto it now also need the right to edit members (`members.members.update`): the tier's members show to everyone, and moving changes their tier and fee. With only `community.honours.update` the tab shows the choice greyed out.
 - Gallery: deleting a photo is red text at the left of the dialog, like other dialogs.
 - **Photo albums move to Documents.** With Documents on, the Gallery tab points to Dokumente › Fotos, and Documents takes the albums over (photos, captions, tags, opt-outs). It reads them through the new queries `community.albums.export` and `community.photos.optouts`. Without Documents, the gallery works as before. A later major version drops the gallery here.
 

@@ -82,6 +82,8 @@ export interface Honours {
   /** Only for whoever keeps honours. */
   tiers?: { id: number; name: string; members: number }[]
   legacy?: LegacyHonour[]
+  /** Picking the tier and moving members onto it need the right to edit members. */
+  canSetTier?: boolean
 }
 
 export interface Jubilee {
