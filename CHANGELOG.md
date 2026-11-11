@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Gallery: deleting a photo is red text at the left of the dialog, like other dialogs.
 - **Photo albums move to Documents.** With Documents on, the Gallery tab points to Dokumente › Fotos, and Documents takes the albums over (photos, captions, tags, opt-outs). It reads them through the new queries `community.albums.export` and `community.photos.optouts`. Without Documents, the gallery works as before. A later major version drops the gallery here.
 
 ## 1.3.0
