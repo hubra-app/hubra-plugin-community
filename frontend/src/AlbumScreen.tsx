@@ -198,7 +198,7 @@ function PhotoModal({
               </Button>
             )}
             {photo.canEdit && (
-              <Button variant="light" color="red" onClick={() => setConfirm(true)}>
+              <Button variant="subtle" color="red" onClick={() => setConfirm(true)}>
                 {t('community.delete')}
               </Button>
             )}
