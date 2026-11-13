@@ -1,5 +1,9 @@
 # Community
 
+## Unreleased
+
+- Date, date-and-time and time fields use Hubra's date pickers: dd.mm.yyyy, a calendar that starts on Monday and 24-hour times, whatever the browser language; typed dates like 1.2.26 work too. Needs Hubra 0.2.6 or later.
+
 ## 1.4.0
 
 - **Security:** turning an idea into a poll now needs the right to create polls (`polls.polls.create`) as well; before, answering ideas was enough because the poll was made as the system.
