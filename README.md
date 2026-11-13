@@ -4,7 +4,7 @@
 
 A plugin for [Hubra](https://hubra.club). Member to member: photo albums that respect who doesn't want to be tagged, an idea box with votes, a welcome checklist for new members, and jubilees and honorary members for the board.
 
-**Version** 1.2.0 · **Works with** Hubra >=0.2,<1 · **Plugin id** `community` · **Needs** the members module (and polls, to turn ideas into polls; the file store, for photos)
+**Version** 1.4.0 · **Works with** Hubra >=0.2.5,<1 · **Plugin id** `community` · **Needs** the members module (and polls, to turn ideas into polls; the file store, for photos)
 
 ![Gallery](docs/screenshots/gallery.png)
 
