@@ -1,6 +1,6 @@
 # Community
 
-## Unreleased
+## 1.4.0
 
 - **Security:** turning an idea into a poll now needs the right to create polls (`polls.polls.create`) as well; before, answering ideas was enough because the poll was made as the system.
 - **Security:** photos that claim more than 60 megapixels are refused before they are decoded, so a small file can't take gigabytes of memory. Pillow's global limit is no longer changed for all of Hubra.
