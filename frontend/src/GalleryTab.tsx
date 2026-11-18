@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AspectRatio, Button, Group, Paper, SimpleGrid, Switch, Text, TextInput, Textarea } from '@mantine/core'
 import { IconPhoto, IconPlus } from '@tabler/icons-react'
-import { EmptyState, ErrorBanner, Field, LoadingSpinner, Modal, useT } from '@hubra/plugin-sdk'
+import { DateField, EmptyState, ErrorBanner, Field, LoadingSpinner, Modal, useT } from '@hubra/plugin-sdk'
 import { QK, errorText, fmtDate, listAlbums, saveAlbum, setConsent, type Album, type Options } from './api'
 import { Picture, useAction, useLocale } from './common'
 
@@ -123,7 +123,7 @@ export function AlbumModal({ album, onClose, onDone }: { album: Album | null; on
         <TextInput value={title} onChange={(e) => setTitle(e.currentTarget.value)} placeholder={t('community.gallery.albumExample')} data-autofocus />
       </Field>
       <Field label={t('community.gallery.takenOn')}>
-        <TextInput type="date" value={takenOn} onChange={(e) => setTakenOn(e.currentTarget.value)} />
+        <DateField value={takenOn} onChange={setTakenOn} />
       </Field>
       <Field label={t('community.description')}>
         <Textarea autosize minRows={2} value={description} onChange={(e) => setDescription(e.currentTarget.value)} />
